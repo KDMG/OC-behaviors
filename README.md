@@ -9,13 +9,7 @@ Given an OCEL, the tool automatically discovers a hierarchy of object types, fil
 - [Python 3.9.6](https://www.python.org/downloads/release/python-396/)
 - [Graphviz](https://graphviz.org/download/) (system package, required for graph rendering)
 
-All Python dependencies are listed in `requirements.txt`:
-
-```
-networkx, numpy, pandas, pm4py, ocpa, gspan-mining,
-scikit-learn, scipy, Flask, Jinja2, graphviz, pulp
-```
-
+All Python dependencies are listed in `requirements.txt`
 ---
 
 ## Installation
