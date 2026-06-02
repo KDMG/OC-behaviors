@@ -23,7 +23,7 @@ pip install -r requirements.txt
 
 ## Quick Start
 
-Run the full pipeline on a [dataset](https://github.com/KDMG/OC-behaviors/tree/main/datasets). For example:
+Run the full pipeline on any [dataset](https://github.com/KDMG/OC-behaviors/tree/main/datasets). For example:
 
 ```bash
 python pipeline.py datasets/hinge_production/hinge_production.sqlite \
