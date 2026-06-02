@@ -7,8 +7,6 @@
 - [Python 3.9.6](https://www.python.org/downloads/release/python-396/)
 - [Graphviz](https://graphviz.org/download/)
 
----
-
 ## Installation
 
 ```bash
@@ -22,7 +20,6 @@ source .venv/bin/activate       # Linux / macOS
 
 pip install -r requirements.txt
 ```
----
 
 ## Quick Start
 
@@ -41,4 +38,3 @@ This will:
 3. Mine behavioral patterns with gspan (default miner).
 4. Open the interactive explorer at `http://127.0.0.1:8050/`.
 
----
