@@ -1,0 +1,248 @@
+/Users/chiaragobbi/.local/share/virtualenvs/multi-level-resource-detection-Miv7-IzF/bin/python3.9 /Users/chiaragobbi/Desktop/Università/dottorato/periodo-estero/multi-level-resource-detection/test.py
+Index(['event_id', 'event_activity', 'event_p_durations', 'event_s_co2ekg',
+       'event_i_compressedairm3', 'event_i_electricfromgriddekWh',
+       'event_i_coatingmaterialkg', 'event_i_coatingmaterialwastekg',
+       'event_i_gasn2usedm3', 'event_i_gasn2emiitedtoairm3',
+       'event_i_steelwastekg', 'event_i_gas_inputWh',
+       'event_i_emissionofburnWh', 'event_i_cardboardboxkg',
+       'event_i_steelwastetorecyclekg', 'event_timestamp', 'Facility',
+       'FemalePart', 'FormedPart', 'Hinge', 'HingePack', 'Machine', 'MalePart',
+       'SteelCoil', 'SteelPin', 'SteelSheet', 'Worker', 'Workstation'],
+      dtype='object')
+['Facility', 'FemalePart', 'FormedPart', 'Hinge', 'HingePack', 'Machine', 'MalePart', 'SteelCoil', 'SteelPin', 'SteelSheet', 'Worker', 'Workstation']
+MalePart -> Hinge
+LC: 1 - 1
+EC: 1 - 0...1
+TR: I
+
+SteelSheet -> Machine
+LC: 0...* - 1..*
+EC: 0...1 - 1
+TR: D
+
+Machine -> HingePack
+LC: 1 - 0...*
+EC: 1 - 0
+TR: Di
+
+SteelCoil -> Workstation
+LC: 0...* - 1
+EC: 0...1 - 1
+TR: D
+
+Hinge -> Workstation
+LC: 0...* - 1
+EC: 0 - 1
+TR: D
+
+MalePart -> SteelPin
+LC: 1 - 1
+EC: 1 - 0...1
+TR: Di
+
+Hinge -> SteelPin
+LC: 1 - 1
+EC: 1 - 1
+TR: Di
+
+FormedPart -> SteelSheet
+LC: 1 - 1..*
+EC: 0...1 - 0...1
+TR: P
+
+MalePart -> FemalePart
+LC: 1 - 1
+EC: 0...1 - 0...1
+TR: P
+
+FormedPart -> MalePart
+LC: 1..* - 0...1
+EC: 0...1 - 0...1
+TR: I
+
+FemalePart -> SteelPin
+LC: 1 - 1
+EC: 1 - 0...1
+TR: Di
+
+FormedPart -> Machine
+LC: 0...* - 1..*
+EC: 0...1 - 1
+TR: D
+
+FemalePart -> Machine
+LC: 0...* - 1..*
+EC: 0...1 - 0...1
+TR: D
+
+SteelSheet -> SteelCoil
+LC: 1..* - 1..*
+EC: 1 - 0...1
+TR: D
+
+Hinge -> HingePack
+LC: 1..* - 1
+EC: 1..* - 0
+TR: Di
+
+Worker -> MalePart
+LC: 1 - 1..*
+EC: 0...1 - 0...1
+TR: Di
+
+Machine -> SteelPin
+LC: 1 - 0...*
+EC: 1 - 0
+TR: Di
+
+FormedPart -> FemalePart
+LC: 1..* - 0...1
+EC: 0...1 - 0...1
+TR: I
+
+Machine -> SteelCoil
+LC: 1 - 0...*
+EC: 1 - 0...1
+TR: Di
+
+Machine -> Hinge
+LC: 1..* - 0...*
+EC: 1 - 0
+TR: Di
+
+Worker -> FemalePart
+LC: 1 - 1..*
+EC: 0...1 - 0...1
+TR: Di
+
+FemalePart -> Hinge
+LC: 1 - 1
+EC: 1 - 0...1
+TR: I
+
+MalePart -> Workstation
+LC: 0...* - 1..*
+EC: 0...1 - 1
+TR: D
+
+SteelPin -> Workstation
+LC: 0...* - 1
+EC: 0 - 1
+TR: D
+
+Worker -> Facility
+LC: 1 - 1
+EC: 1 - 0
+TR: Di
+
+SteelSheet -> Workstation
+LC: 0...* - 1
+EC: 0...1 - 1
+TR: D
+
+Workstation -> HingePack
+LC: 1 - 0...*
+EC: 1 - 0
+TR: Di
+
+Worker -> Workstation
+LC: 0...1 - 1
+EC: 0...1 - 1
+TR: Di
+
+MalePart -> Machine
+LC: 0...* - 1..*
+EC: 0...1 - 0...1
+TR: D
+
+Machine -> Workstation
+LC: 1..* - 1..*
+EC: 0...1 - 1
+TR: D
+
+FormedPart -> Workstation
+LC: 0...* - 1..*
+EC: 0...1 - 1
+TR: D
+
+FemalePart -> Workstation
+LC: 0...* - 1..*
+EC: 0...1 - 1
+TR: D
+
+Welcome to the CBC MILP Solver
+Version: 2.10.3
+Build Date: Dec 15 2019
+
+command line - /Users/chiaragobbi/.local/share/virtualenvs/multi-level-resource-detection-Miv7-IzF/lib/python3.9/site-packages/pulp/apis/../solverdir/cbc/osx/i64/cbc /var/folders/44/ktvmskg96pn9dft_13yjb_000000gn/T/6785bce1dcb9487d800aa59ee380484c-pulp.mps -timeMode elapsed -branch -printingOptions all -solution /var/folders/44/ktvmskg96pn9dft_13yjb_000000gn/T/6785bce1dcb9487d800aa59ee380484c-pulp.sol (default strategy 1)
+At line 2 NAME          MODEL
+At line 3 ROWS
+At line 43 COLUMNS
+At line 174 RHS
+At line 213 BOUNDS
+At line 232 ENDATA
+Problem MODEL has 38 rows, 18 columns and 88 elements
+Coin0008I MODEL read with 0 errors
+Option for timeMode changed from cpu to elapsed
+Continuous objective value is 45 - 0.00 seconds
+Cgl0003I 0 fixed, 12 tightened bounds, 0 strengthened rows, 0 substitutions
+Cgl0004I processed model has 38 rows, 18 columns (12 integer (0 of which binary)) and 88 elements
+Cbc0012I Integer solution of 45 found by DiveCoefficient after 0 iterations and 0 nodes (0.04 seconds)
+Cbc0001I Search completed - best objective 45, took 0 iterations and 0 nodes (0.04 seconds)
+Cbc0035I Maximum depth 0, 0 variables fixed on reduced cost
+Cuts at root node changed objective from 45 to 45
+Probing was tried 0 times and created 0 cuts of which 0 were active after adding rounds of cuts (0.000 seconds)
+Gomory was tried 0 times and created 0 cuts of which 0 were active after adding rounds of cuts (0.000 seconds)
+Knapsack was tried 0 times and created 0 cuts of which 0 were active after adding rounds of cuts (0.000 seconds)
+Clique was tried 0 times and created 0 cuts of which 0 were active after adding rounds of cuts (0.000 seconds)
+MixedIntegerRounding2 was tried 0 times and created 0 cuts of which 0 were active after adding rounds of cuts (0.000 seconds)
+FlowCover was tried 0 times and created 0 cuts of which 0 were active after adding rounds of cuts (0.000 seconds)
+TwoMirCuts was tried 0 times and created 0 cuts of which 0 were active after adding rounds of cuts (0.000 seconds)
+ZeroHalf was tried 0 times and created 0 cuts of which 0 were active after adding rounds of cuts (0.000 seconds)
+
+Result - Optimal solution found
+
+Objective value:                45.00000000
+Enumerated nodes:               0
+Total iterations:               0
+Time (CPU seconds):             0.00
+Time (Wallclock seconds):       0.04
+
+Option for printingOptions changed from normal to all
+Total time (CPU seconds):       0.00   (Wallclock seconds):       0.04
+
+level_Machine: 2.0
+level_Facility: 3.0
+level_MalePart: 1.0
+level_Worker: 4.0
+level_FormedPart: 1.0
+level_Workstation: 3.0
+level_SteelCoil: 1.0
+level_SteelSheet: 0.0
+level_FemalePart: 1.0
+level_Hinge: 1.0
+level_SteelPin: 0.0
+level_HingePack: 0.0
+Assignment of object types to layers:
+{2.0: {'Machine'}, 3.0: {'Facility', 'Workstation'}, 1.0: {'MalePart', 'FormedPart', 'SteelCoil', 'FemalePart', 'Hinge'}, 4.0: {'Worker'}, 0.0: {'SteelSheet', 'SteelPin', 'HingePack'}}
+
+Process View (without matching event types):
+{0.0: [['SteelSheet'], ['SteelPin'], ['HingePack']], 1.0: [['MalePart', 'FormedPart', 'FemalePart', 'Hinge'], ['SteelCoil']], 2.0: [['Machine']], 3.0: [['Facility'], ['Workstation']], 4.0: [['Worker']]}
+
+Resulting Process Views with matching Eventtypes:
+{0.0: [(['SteelSheet'],
+        {'SplitSteelSheet', 'FormSteelSheet', 'HeatSteelSheet'}),
+       (['SteelPin'], {'AssembleHinge'}),
+       (['HingePack'], {'PackHinges'})],
+ 1.0: [(['MalePart', 'FormedPart', 'FemalePart', 'Hinge'],
+        {'CheckFemalePart',
+         'CheckMalePart',
+         'CoatPart',
+         'CuttFemalePart',
+         'CuttMalePart'}),
+       (['SteelCoil'], set())],
+ 2.0: [(['Machine'], set())],
+ 3.0: [(['Facility'], {'MoveParts'}), (['Workstation'], set())],
+ 4.0: [(['Worker'], set())]}
+
+Process finished with exit code 0

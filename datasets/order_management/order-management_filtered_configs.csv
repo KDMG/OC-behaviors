@@ -1,0 +1,38 @@
+cfg,phi,interesting,reason_skipped,K,n_executions,avg_behavior_size,support_min,support_mean,support_max,reduction_from_bottom,compression_from_bottom
+"(7, 4, 3)",items: ρ = type  │  orders: ρ = type  │  packages: ρ = type,True,,1388,2000,35.7795,1,1.440922190201729,44,0.30600000000000005,0.5443088757848619
+"(2, 4, 3)",items: ρ = price_band  │  orders: ρ = type  │  packages: ρ = type,True,,1927,2000,47.8665,1,1.0378827192527245,5,0.03649999999999998,0.39036769107327074
+"(6, 4, 3)",items: ρ = products_weight_band  │  orders: ρ = type  │  packages: ρ = type,True,,1942,2000,47.3845,1,1.0298661174047374,4,0.029000000000000026,0.3965064890405898
+"(7, 2, 3)",items: ρ = type  │  orders: ρ = price_band  │  packages: ρ = type,True,,1530,2000,35.7795,1,1.3071895424836601,30,0.235,0.5443088757848619
+"(7, 3, 3)",items: ρ = type  │  orders: ρ = customers  │  packages: ρ = type,True,,1840,2000,35.7795,1,1.0869565217391304,6,0.07999999999999996,0.5443088757848619
+"(7, 4, 2)",items: ρ = type  │  orders: ρ = type  │  packages: ρ = weight_band,True,,1663,2000,36.6125,1,1.2026458208057726,16,0.16849999999999998,0.5336997083434161
+"(2, 2, 3)",items: ρ = price_band  │  orders: ρ = price_band  │  packages: ρ = type,True,,1930,2000,46.699,1,1.0362694300518134,5,0.03500000000000003,0.4052370824152731
+"(2, 3, 3)",items: ρ = price_band  │  orders: ρ = customers  │  packages: ρ = type,True,,1992,2000,47.8665,1,1.0040160642570282,2,0.0040000000000000036,0.39036769107327074
+"(2, 4, 2)",items: ρ = price_band  │  orders: ρ = type  │  packages: ρ = weight_band,True,,1911,2000,43.457,1,1.0465724751439036,5,0.044499999999999984,0.4465275035979469
+"(4, 4, 3)",items: ρ = products_price  │  orders: ρ = type  │  packages: ρ = type,False,no merging (K = n_executions),2000,2000,70.53,1,1.0,1,0.0,0.10172319370327443
+"(5, 4, 3)",items: ρ = products_weight  │  orders: ρ = type  │  packages: ρ = type,False,no merging (K = n_executions),2000,2000,69.0425,1,1.0,1,0.0,0.12066813556299905
+"(6, 2, 3)",items: ρ = products_weight_band  │  orders: ρ = price_band  │  packages: ρ = type,True,,1950,2000,46.4005,1,1.0256410256410255,4,0.025000000000000022,0.40903880688258587
+"(6, 3, 3)",items: ρ = products_weight_band  │  orders: ρ = customers  │  packages: ρ = type,True,,1995,2000,47.3845,1,1.0025062656641603,2,0.0024999999999999467,0.3965064890405898
+"(6, 4, 2)",items: ρ = products_weight_band  │  orders: ρ = type  │  packages: ρ = weight_band,True,,1926,2000,43.2355,1,1.0384215991692627,4,0.03700000000000003,0.44934854872193275
+"(7, 1, 3)",items: ρ = type  │  orders: ρ = price  │  packages: ρ = type,True,,1992,2000,35.7795,1,1.0040160642570282,3,0.0040000000000000036,0.5443088757848619
+"(7, 2, 2)",items: ρ = type  │  orders: ρ = price_band  │  packages: ρ = weight_band,True,,1748,2000,36.6125,1,1.1441647597254005,12,0.126,0.5336997083434161
+"(7, 0, 3)",items: ρ = type  │  orders: ρ = id  │  packages: ρ = type,False,no merging (K = n_executions),2000,2000,35.7795,1,1.0,1,0.0,0.5443088757848619
+"(7, 3, 2)",items: ρ = type  │  orders: ρ = customers  │  packages: ρ = weight_band,True,,1943,2000,36.6125,1,1.029336078229542,4,0.02849999999999997,0.5336997083434161
+"(7, 4, 1)",items: ρ = type  │  orders: ρ = type  │  packages: ρ = weight,True,,1996,2000,37.173,1,1.002004008016032,2,0.0020000000000000018,0.5265611268897181
+"(2, 1, 3)",items: ρ = price_band  │  orders: ρ = price  │  packages: ρ = type,True,,1999,2000,47.8665,1,1.0005002501250626,2,0.0004999999999999449,0.39036769107327074
+"(2, 2, 2)",items: ρ = price_band  │  orders: ρ = price_band  │  packages: ρ = weight_band,True,,1912,2000,42.2895,1,1.0460251046025104,5,0.04400000000000004,0.4613968949399493
+"(2, 3, 2)",items: ρ = price_band  │  orders: ρ = customers  │  packages: ρ = weight_band,True,,1991,2000,43.457,1,1.0045203415369162,2,0.0044999999999999485,0.4465275035979469
+"(2, 4, 1)",items: ρ = price_band  │  orders: ρ = type  │  packages: ρ = weight,False,no merging (K = n_executions),2000,2000,47.987,1,1.0,1,0.0,0.3888329915814409
+"(6, 1, 3)",items: ρ = products_weight_band  │  orders: ρ = price  │  packages: ρ = type,True,,1999,2000,47.3845,1,1.0005002501250626,2,0.0004999999999999449,0.3965064890405898
+"(6, 2, 2)",items: ρ = products_weight_band  │  orders: ρ = price_band  │  packages: ρ = weight_band,True,,1936,2000,42.2515,1,1.0330578512396693,4,0.03200000000000003,0.4618808665639288
+"(6, 3, 2)",items: ρ = products_weight_band  │  orders: ρ = customers  │  packages: ρ = weight_band,True,,1994,2000,43.2355,1,1.0030090270812437,2,0.0030000000000000027,0.44934854872193275
+"(6, 4, 1)",items: ρ = products_weight_band  │  orders: ρ = type  │  packages: ρ = weight,False,no merging (K = n_executions),2000,2000,47.4765,1,1.0,1,0.0,0.39533476826674474
+"(7, 1, 2)",items: ρ = type  │  orders: ρ = price  │  packages: ρ = weight_band,True,,1995,2000,36.6125,1,1.0025062656641603,2,0.0024999999999999467,0.5336997083434161
+"(7, 2, 1)",items: ρ = type  │  orders: ρ = price_band  │  packages: ρ = weight,True,,1998,2000,37.173,1,1.001001001001001,2,0.0010000000000000009,0.5265611268897181
+"(7, 3, 1)",items: ρ = type  │  orders: ρ = customers  │  packages: ρ = weight,True,,1996,2000,37.173,1,1.002004008016032,2,0.0020000000000000018,0.5265611268897181
+"(7, 4, 0)",items: ρ = type  │  orders: ρ = type  │  packages: ρ = id,True,,1996,2000,37.173,1,1.002004008016032,2,0.0020000000000000018,0.5265611268897181
+"(2, 1, 2)",items: ρ = price_band  │  orders: ρ = price  │  packages: ρ = weight_band,True,,1998,2000,43.457,1,1.001001001001001,2,0.0010000000000000009,0.4465275035979469
+"(6, 1, 2)",items: ρ = products_weight_band  │  orders: ρ = price  │  packages: ρ = weight_band,True,,1998,2000,43.2355,1,1.001001001001001,2,0.0010000000000000009,0.44934854872193275
+"(7, 1, 1)",items: ρ = type  │  orders: ρ = price  │  packages: ρ = weight,False,no merging (K = n_executions),2000,2000,37.173,1,1.0,1,0.0,0.5265611268897181
+"(7, 2, 0)",items: ρ = type  │  orders: ρ = price_band  │  packages: ρ = id,True,,1998,2000,37.173,1,1.001001001001001,2,0.0010000000000000009,0.5265611268897181
+"(7, 3, 0)",items: ρ = type  │  orders: ρ = customers  │  packages: ρ = id,True,,1996,2000,37.173,1,1.002004008016032,2,0.0020000000000000018,0.5265611268897181
+"(0, 0, 0)",items: ρ = id  │  orders: ρ = id  │  packages: ρ = id,False,no merging (K = n_executions),2000,2000,78.517,1,1.0,1,0.0,0.0

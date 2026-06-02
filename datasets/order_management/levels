@@ -1,0 +1,135 @@
+/Users/chiaragobbi/.local/share/virtualenvs/multi-level-resource-detection-Miv7-IzF/bin/python3.9 /Users/chiaragobbi/Desktop/Università/dottorato/periodo-estero/multi-level-resource-detection/test.py
+Index(['event_id', 'event_activity', 'event_timestamp', 'orders', 'items',
+       'packages', 'customers', 'products', 'employees'],
+      dtype='object')
+['orders', 'items', 'packages', 'customers', 'products', 'employees']
+products -> customers
+LC: 1..* - 1..*
+EC: 1..* - 0...1
+TR: P
+
+products -> items
+LC: 1..* - 1..*
+EC: 1..* - 1..*
+TR: Di
+
+packages -> items
+LC: 1 - 1..*
+EC: 0...1 - 1..*
+TR: D
+
+products -> packages
+LC: 1..* - 1..*
+EC: 1..* - 0...1
+TR: Di
+
+orders -> employees
+LC: 0...* - 1
+EC: 0...1 - 0...1
+TR: D
+
+orders -> customers
+LC: 1..* - 1
+EC: 1 - 0...1
+TR: D
+
+employees -> customers
+LC: 1..* - 0...*
+EC: 0...1 - 0...1
+TR: P
+
+employees -> items
+LC: 1..* - 1..*
+EC: 0...1 - 1..*
+TR: Di
+
+customers -> items
+LC: 1 - 1..*
+EC: 0...1 - 1..*
+TR: Di
+
+employees -> packages
+LC: 1..* - 0...*
+EC: 1..* - 0...1
+TR: Di
+
+orders -> products
+LC: 1..* - 1..*
+EC: 0...1 - 1..*
+TR: D
+
+orders -> items
+LC: 1 - 1..*
+EC: 0...1 - 1..*
+TR: D
+
+products -> employees
+LC: 1..* - 1..*
+EC: 1..* - 0...1
+TR: P
+
+Welcome to the CBC MILP Solver
+Version: 2.10.3
+Build Date: Dec 15 2019
+
+command line - /Users/chiaragobbi/.local/share/virtualenvs/multi-level-resource-detection-Miv7-IzF/lib/python3.9/site-packages/pulp/apis/../solverdir/cbc/osx/i64/cbc /var/folders/44/ktvmskg96pn9dft_13yjb_000000gn/T/cd95e043f47149b59d4bc4632550d7bc-pulp.mps -timeMode elapsed -branch -printingOptions all -solution /var/folders/44/ktvmskg96pn9dft_13yjb_000000gn/T/cd95e043f47149b59d4bc4632550d7bc-pulp.sol (default strategy 1)
+At line 2 NAME          MODEL
+At line 3 ROWS
+At line 21 COLUMNS
+At line 81 RHS
+At line 98 BOUNDS
+At line 108 ENDATA
+Problem MODEL has 16 rows, 9 columns and 38 elements
+Coin0008I MODEL read with 0 errors
+Option for timeMode changed from cpu to elapsed
+Continuous objective value is 15 - 0.00 seconds
+Cgl0003I 0 fixed, 6 tightened bounds, 0 strengthened rows, 0 substitutions
+Cgl0004I processed model has 16 rows, 9 columns (6 integer (0 of which binary)) and 38 elements
+Cbc0012I Integer solution of 15 found by DiveCoefficient after 0 iterations and 0 nodes (0.01 seconds)
+Cbc0001I Search completed - best objective 15, took 0 iterations and 0 nodes (0.01 seconds)
+Cbc0035I Maximum depth 0, 0 variables fixed on reduced cost
+Cuts at root node changed objective from 15 to 15
+Probing was tried 0 times and created 0 cuts of which 0 were active after adding rounds of cuts (0.000 seconds)
+Gomory was tried 0 times and created 0 cuts of which 0 were active after adding rounds of cuts (0.000 seconds)
+Knapsack was tried 0 times and created 0 cuts of which 0 were active after adding rounds of cuts (0.000 seconds)
+Clique was tried 0 times and created 0 cuts of which 0 were active after adding rounds of cuts (0.000 seconds)
+MixedIntegerRounding2 was tried 0 times and created 0 cuts of which 0 were active after adding rounds of cuts (0.000 seconds)
+FlowCover was tried 0 times and created 0 cuts of which 0 were active after adding rounds of cuts (0.000 seconds)
+TwoMirCuts was tried 0 times and created 0 cuts of which 0 were active after adding rounds of cuts (0.000 seconds)
+ZeroHalf was tried 0 times and created 0 cuts of which 0 were active after adding rounds of cuts (0.000 seconds)
+
+Result - Optimal solution found
+
+Objective value:                15.00000000
+Enumerated nodes:               0
+Total iterations:               0
+Time (CPU seconds):             0.00
+Time (Wallclock seconds):       0.01
+
+Option for printingOptions changed from normal to all
+Total time (CPU seconds):       0.00   (Wallclock seconds):       0.02
+
+level_customers: 2.0
+level_products: 2.0
+level_orders: 0.0
+level_employees: 2.0
+level_packages: 0.0
+level_items: 1.0
+Assignment of object types to layers:
+{2.0: {'products', 'employees', 'customers'}, 0.0: {'orders', 'packages'}, 1.0: {'items'}}
+
+Process View (without matching event types):
+{0.0: [['orders'], ['packages']], 1.0: [['items']], 2.0: [['products', 'employees', 'customers']]}
+
+Resulting Process Views with matching Eventtypes:
+{0.0: [(['orders'],
+        {'confirm order', 'payment reminder', 'place order', 'pay order'}),
+       (['packages'],
+        {'create package',
+         'failed delivery',
+         'package delivered',
+         'send package'})],
+ 1.0: [(['items'], {'pick item', 'item out of stock', 'reorder item'})],
+ 2.0: [(['products', 'employees', 'customers'], set())]}
+
+Process finished with exit code 0
