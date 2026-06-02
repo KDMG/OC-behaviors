@@ -1,6 +1,6 @@
 # OC-Behaviors
 
-A tool for **object-centric behaviors mining* on Object-Centric Event Logs (OCEL).
+A tool for *object-centric behaviors mining* on Object-Centric Event Logs (OCEL).
 
 Given an OCEL, the tool automatically discovers a hierarchy of object types, filters out resource and container types, and then mines frequent subgraph patterns at each level of abstraction — scoring them by their discriminative power with respect to a user-defined KPI (e.g., case duration, number of events).
 
