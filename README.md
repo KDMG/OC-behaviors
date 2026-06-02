@@ -13,7 +13,6 @@
 git clone https://github.com/KDMG/OC-behaviors.git
 cd OC-behaviors
 
-# Create and activate a virtual environment (recommended)
 python3.9 -m venv .venv
 source .venv/bin/activate       # Linux / macOS
 # .venv\Scripts\activate        # Windows
