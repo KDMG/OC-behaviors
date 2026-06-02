@@ -14,7 +14,7 @@ Given an OCEL, the tool automatically discovers a hierarchy of object types, fil
 ## Installation
 
 ```bash
-git clone https://github.com/<your-org>/OC-behaviors.git
+git clone https://github.com/KDMG/OC-behaviors.git
 cd OC-behaviors
 
 # Create and activate a virtual environment (recommended)
@@ -24,12 +24,6 @@ source .venv/bin/activate       # Linux / macOS
 
 pip install -r requirements.txt
 ```
-
-> **Note on Graphviz:** the Python `graphviz` package is a wrapper — you also need the Graphviz binaries installed at the system level.
-> - macOS: `brew install graphviz`
-> - Ubuntu/Debian: `sudo apt install graphviz`
-> - Windows: download from [graphviz.org](https://graphviz.org/download/) and add to PATH.
-
 ---
 
 ## Quick Start
