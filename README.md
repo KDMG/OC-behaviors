@@ -26,14 +26,14 @@ Run the full pipeline on any [dataset](https://github.com/KDMG/OC-behaviors/tree
 
 ```bash
 python pipeline.py datasets/hinge_production/hinge_production.sqlite \
-    --leading Hinge \
+    --leading hinge \
     --bundle  datasets/hinge_production/run_gspan.pkl \
     --explore
 ```
 
 This will:
-1. Run MLPA to detect resource types automatically.
-2. Filter the log (removing types with no process activities).
-3. Mine behavioral patterns with gspan (default miner).
+1. Run MLPA to detect resource types automatically;
+2. Filter the log (removing types with no process activities);
+3. Mine behavioral patterns with gspan;
 4. Open the interactive explorer at `http://127.0.0.1:8050/`.
 
