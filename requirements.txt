@@ -26,7 +26,8 @@ lxml==6.1.0
 jsonschema==4.25.1
 jsonschema-specifications==2025.9.1
 pulp==3.3.2
-
+joblib==1.5.3
+threadpoolctl==3.6.0
 
 # Optional plotting / diagnostics used by ocel_filter.py
 matplotlib==3.9.4
