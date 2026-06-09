@@ -767,8 +767,8 @@ def _fmt_cfg(cfg: Tuple[int, ...], types: List[str], level_names: Dict[str, List
         names = level_names.get(tau, [])
         lv = cfg[i]
         lbl = names[lv] if 0 <= lv < len(names) else str(lv)
-        parts.append(f'{tau}: cfg = {lbl}')
-    return '  │  '.join(parts)
+        parts.append(f'{tau}:{lbl}')
+    return ' | '.join(parts)
 
 def _fmt_duration_seconds(s: float) -> str:
     abs_s = abs(s)
@@ -968,8 +968,8 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
         print('[cfg-fn] function space per object type:')
         for tau in types:
             names = level_names[tau]
-            rs = [f'identity' if n == 'id' else 'map→type' if n == 'type' else f'cfg_{n}' for n in names]
-            print(f'        {tau:>10s}  :  ' + '  |  '.join(rs))
+            rs = ['identity' if n == 'id' else 'type' if n == 'type' else n for n in names]
+            print(f'  {tau}: ' + ' | '.join(rs))
     s_abs_min = int(round(s_min * len(executions))) if not support_abs else int(s_min)
     s_abs_max = int(round(s_max * len(executions))) if not support_abs else int(s_max)
     if not quiet:
@@ -1023,7 +1023,7 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
         red_cfg = behavior_reduction(lattice_metrics, bottom_cfg, r.cfg)
         comp_cfg = behavior_compression(lattice_metrics, bottom_cfg, r.cfg)
         status(f'[mine] configuration {n_mined}')
-        print(f'[mine] cfg {n_mined}  Φ = {_fmt_cfg(r.cfg, types, level_names)}  (K={r.K}/{r.n_executions}, s={m_cfg.s:.2f}, reduction_from_bottom={red_cfg:+.4f} {_pct(red_cfg)}, behavior_compression={comp_cfg:+.4f} {_pct(comp_cfg)})')
+        print(f'[mine] cfg {n_mined}  Φ = {_fmt_cfg(r.cfg, types, level_names)}  (K={r.K}/{r.n_executions}, s={m_cfg.s:.1f}, reduction={_pct(red_cfg)}, compression={_pct(comp_cfg)})')
         t_mine = time.time()
         scored, bundled, mining_stats = _mine_and_score(r, kpi_values=kpi_values, primary_kpi=primary_kpi_name, s_min_abs=s_abs_min, s_max_abs=s_abs_max, max_edges=max_edges, beam_width=beam_width, min_support=min_support, top_k_per_cfg=top_k_per_cfg, verbose=not quiet, collect_all=want_bundle, miner=miner)
         total_mining_time += time.time() - t_mine
@@ -1054,10 +1054,10 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
         if class_sizes:
             _cs = list(class_sizes.values())
             _mean = run.n_executions / run.K if run.K else 0.0
-            print(f'[iso ] cfg={cfg}  h={cfg_height}  K={run.K}/{run.n_executions}'
+            print(f'[iso] cfg={cfg}  h={cfg_height}  K={run.K}/{run.n_executions}'
                   f'  s={avg_behavior_size:.2f}  class sizes min={min(_cs)} mean={_mean:.2f} max={max(_cs)}')
         else:
-            print(f'[iso ] cfg={cfg}  h={cfg_height}  K={run.K}/{run.n_executions}'
+            print(f'[iso] cfg={cfg}  h={cfg_height}  K={run.K}/{run.n_executions}'
                   f'  s={avg_behavior_size:.2f}  class sizes (empty)')
         total_behavior_time += run.behavior_time_s
         total_iso_time += run.iso_time_s
@@ -1065,7 +1065,7 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
         if cfg != bottom_cfg and run.K == bottom_len:
             pruned_cfgs.add(cfg)
             if not quiet:
-                print(f'[prune] K = n_executions ({run.K}); sub-lattice below this cfg is skipped\n        Φ = {_fmt_cfg(cfg, types, level_names)}')
+                print(f'[prune] K=n_executions={run.K}, Φ = {_fmt_cfg(cfg, types, level_names)}')
         ok, why = _is_interesting(run)
         run.is_interesting = ok
         run.reason_skipped = why
@@ -1175,11 +1175,11 @@ def _print_top(top: List[LiftedPattern], types: List[str], level_names: Dict[str
     print(bar)
     for i, p in enumerate(top, 1):
         sign = '+' if p.signed_delta >= 0 else '−'
-        print(f'  {i:2d}. KPI = {_fmt_duration_seconds(p.delta):>10s}  (signed {sign}{_fmt_duration_seconds(abs(p.signed_delta))})')
-        print(f'      support = {p.support}/{p.n_graphs}  |E_in|={len(p.in_exec_idx)}  |E_out|={len(p.out_exec_idx)}')
-        print(f'      min  = {_fmt_duration_seconds(p.mu_in)}     max = {_fmt_duration_seconds(p.mu_out)}')
-        print(f'      size  = {p.size_nodes} nodes, {p.size_edges} edges')
-        print(f'      cfg : {_fmt_cfg(p.cfg, types, level_names)}')
+        print(f'{i:2d}. KPI = {_fmt_duration_seconds(p.delta):>10s}  (signed {sign}{_fmt_duration_seconds(abs(p.signed_delta))})')
+        print(f'support = {p.support}/{p.n_graphs}  |E_in|={len(p.in_exec_idx)}  |E_out|={len(p.out_exec_idx)}')
+        print(f'min = {_fmt_duration_seconds(p.mu_in)}     max = {_fmt_duration_seconds(p.mu_out)}')
+        print(f'size = {p.size_nodes} nodes, {p.size_edges} edges')
+        print(f'cfg: {_fmt_cfg(p.cfg, types, level_names)}')
     print(bar)
 
 def main(argv: Optional[List[str]]=None) -> int:
