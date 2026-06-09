@@ -11,16 +11,72 @@ from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import networkx as nx
+from networkx.algorithms.isomorphism import DiGraphMatcher
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-from mining.subdue_experiment import (
-    MinedPattern,
-    canonical_signature,
-    support as _true_support,
-)
+
+
+# ── definitions extracted from subdue_experiment (no subdue dependency) ──
+@dataclass
+class MinedPattern:
+    signature:  Tuple
+    pattern:    nx.DiGraph
+    support:    int
+    size_edges: int
+    size_nodes: int
+
+def canonical_signature(P: nx.DiGraph) -> Tuple:
+    """
+    Minimal-lex signature over all permutations of the node set.
+    Only feasible for small patterns (≤ ~7 nodes ➜ ≤ 5040 perms).
+
+    Signature: (tuple of node-labels, tuple of sorted edges), each edge
+    being (src_idx, tgt_idx, sorted-tuple-of-labels).
+    """
+    nodes = list(P.nodes())
+    node_labels = [P.nodes[n]["label"] for n in nodes]
+    edges_raw = [
+        (nodes.index(u), nodes.index(v), tuple(sorted(d["labels"])))
+        for u, v, d in P.edges(data=True)
+    ]
+
+    n = len(nodes)
+    best: Optional[Tuple] = None
+    for perm in itertools.permutations(range(n)):
+        inv = [0] * n
+        for new_i, old_i in enumerate(perm):
+            inv[old_i] = new_i
+        nl = tuple(node_labels[perm[i]] for i in range(n))
+        el = tuple(sorted(
+            (inv[u], inv[v], lbls) for (u, v, lbls) in edges_raw
+        ))
+        sig = (nl, el)
+        if best is None or sig < best:
+            best = sig
+    assert best is not None
+    return best
+
+
+def _node_match(a, b):
+    return a.get("label") == b.get("label")
+
+def _edge_match(a, b):
+    return b["labels"].issubset(a["labels"])
+
+def _matcher(G, P):
+    return DiGraphMatcher(G, P, node_match=_node_match, edge_match=_edge_match)
+
+def support(P: nx.DiGraph, graphs: Sequence[nx.DiGraph]) -> int:
+    """Number of graphs in which P has a subgraph isomorphism (once)."""
+    cnt = 0
+    for G in graphs:
+        if _matcher(G, P).subgraph_is_isomorphic():
+            cnt += 1
+    return cnt
+# ─────────────────────────────────────────────────────────────────────────
 
 _GADGET_PREFIX = "__edge_"
 _IN_LABEL = "_in"
@@ -355,7 +411,7 @@ def mine_gspan(
             n_duplicate += 1
             continue
 
-        sup = _true_support(P, graphs)
+        sup = support(P, graphs)
         if sup < min_support:
             n_support_low += 1
             continue

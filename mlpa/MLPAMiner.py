@@ -444,7 +444,7 @@ def mlpaDiscovery(ocel, tau=0.9):
     for px in ocel.process_executions:
         for ev in px:
             # event infos: objects and timestamps
-            ev_timestamp = datetime.strptime(str(ocel.get_value(ev, 'event_timestamp')), DATEFORMAT)
+            ev_timestamp = parse_timestamp(ocel.get_value(ev, 'event_timestamp'))
 
             objects_of_event = get_all_event_objects(ocel, ev)
             for obj in objects_of_event:
