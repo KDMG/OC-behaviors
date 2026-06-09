@@ -26,7 +26,7 @@ Run the full pipeline on any [dataset](https://github.com/KDMG/OC-behaviors/tree
 
 ```bash
 python pipeline.py datasets/hinge_production/hinge_production.sqlite \
-    --leading Hinge \
+    --leading hinge \
     --bundle  datasets/hinge_production/run_gspan.pkl \
     --explore
 ```
