@@ -1041,7 +1041,14 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
         behavior_sizes = [_behavior_size(b) for b in run.behaviors]
         avg_behavior_size = sum(behavior_sizes) / len(behavior_sizes) if behavior_sizes else 0.0
         cfg_height = _cfg_height(cfg, types, hierarchies)
-        print(f'[iso ] cfg={cfg}  h={cfg_height}  K={run.K}/{run.n_executions}  s={avg_behavior_size:.2f}  class sizes min={min(class_sizes.values())} mean={run.n_executions / run.K:.2f} max={max(class_sizes.values())}')
+        if class_sizes:
+            _cs = list(class_sizes.values())
+            _mean = run.n_executions / run.K if run.K else 0.0
+            print(f'[iso ] cfg={cfg}  h={cfg_height}  K={run.K}/{run.n_executions}'
+                  f'  s={avg_behavior_size:.2f}  class sizes min={min(_cs)} mean={_mean:.2f} max={max(_cs)}')
+        else:
+            print(f'[iso ] cfg={cfg}  h={cfg_height}  K={run.K}/{run.n_executions}'
+                  f'  s={avg_behavior_size:.2f}  class sizes (empty)')
         total_behavior_time += run.behavior_time_s
         total_iso_time += run.iso_time_s
         runs_by_cfg[cfg] = run

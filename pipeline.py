@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 import math
-import shutil
 import sqlite3
 import subprocess
 import sys
@@ -226,11 +225,9 @@ def main(argv=None) -> int:
     if args.skip_filter:
         mining_input = ocel_path
         print(f"[filter] Skipped — mining from original: {mining_input}")
-    elif not remove_types:
-        print("[filter] No types to remove — copying input as-is.")
-        shutil.copy(ocel_path, filtered_path)
-        mining_input = filtered_path
     else:
+        # Always run ocel_filter: it sanitises names and discretises attributes
+        # even when no types need to be removed.
         run_filter(ocel_path, filtered_path, remove_types)
         mining_input = filtered_path
 
