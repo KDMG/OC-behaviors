@@ -1051,6 +1051,8 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
         r.behaviors = []
         r.iso_ids = []
     _stash_lattice_metrics(run_bottom)
+    executor = concurrent.futures.ProcessPoolExecutor(max_workers=n_workers) if n_workers > 1 else None
+    _pending: Dict[concurrent.futures.Future, CfgRun] = {}
     status('[cfg ] computing behaviors and isomorphism classes …')
     for j, cfg in enumerate(all_cfgs):
         if cfg != bottom_cfg and any((_cfg_leq(cfg, p, types, hierarchies) for p in pruned_cfgs)):
@@ -1066,14 +1068,15 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
         behavior_sizes = [_behavior_size(b) for b in run.behaviors]
         avg_abstraction_size = sum(behavior_sizes) / len(behavior_sizes) if behavior_sizes else 0.0
         cfg_height = _cfg_height(cfg, types, hierarchies)
-        if class_sizes:
-            _cs = list(class_sizes.values())
-            _mean = run.n_executions / run.K if run.K else 0.0
-            print(f'[iso] cfg={cfg}  h={cfg_height}  K={run.K}/{run.n_executions}'
-                  f'  s={avg_abstraction_size:.2f}  class sizes min={min(_cs)} mean={_mean:.2f} max={max(_cs)}')
-        else:
-            print(f'[iso] cfg={cfg}  h={cfg_height}  K={run.K}/{run.n_executions}'
-                  f'  s={avg_abstraction_size:.2f}  class sizes (empty)')
+        if not quiet:
+            if class_sizes:
+                _cs = list(class_sizes.values())
+                _mean = run.n_executions / run.K if run.K else 0.0
+                print(f'[iso] cfg={cfg}  h={cfg_height}  K={run.K}/{run.n_executions}'
+                      f'  s={avg_abstraction_size:.2f}  class sizes min={min(_cs)} mean={_mean:.2f} max={max(_cs)}')
+            else:
+                print(f'[iso] cfg={cfg}  h={cfg_height}  K={run.K}/{run.n_executions}'
+                      f'  s={avg_abstraction_size:.2f}  class sizes (empty)')
         total_behavior_time += run.behavior_time_s
         total_iso_time += run.iso_time_s
         runs_by_cfg[cfg] = run
@@ -1088,7 +1091,13 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
         _stash_lattice_metrics(run)
         if ok:
             runs.append(run)
-            # behaviors kept in memory; mined in parallel after the loop
+            if cfg != bottom_cfg:
+                if n_workers == 1:
+                    _stream_mine(run)
+                else:
+                    _payload = (run, kpi_values, primary_kpi_name, s_abs_min, s_abs_max,
+                                max_edges, beam_width, min_support, top_k_per_cfg, want_bundle, miner)
+                    _pending[executor.submit(_mine_worker, _payload)] = run
         else:
             n_skipped += 1
             if cfg != bottom_cfg:
@@ -1121,58 +1130,41 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
                 red_cfg = behavior_reduction(lattice_metrics, bottom_cfg, run.cfg)
                 comp_cfg = behavior_compression(lattice_metrics, bottom_cfg, run.cfg)
                 print(f'{_fmt_cfg(run.cfg, types, level_names)}  K={run.K}/{run.n_executions}, s={m_cfg.s:.2f}, reduction={_pct(red_cfg)}, compression={_pct(comp_cfg)}, support=[{m_cfg.sup_min}, {m_cfg.sup_mean:.2f}, {m_cfg.sup_max}], interesting={run.is_interesting}')
-    n_to_mine = len(mine_runs)
-    status(f'[mine] mining {n_to_mine} configurations (workers={n_workers}) …')
-    if not quiet:
-        print(f'[mine] starting subgraph mining on {n_to_mine} configurations (workers={n_workers})')
     t_mine_start = time.time()
-    payloads = [
-        (run, kpi_values, primary_kpi_name, s_abs_min, s_abs_max,
-         max_edges, beam_width, min_support, top_k_per_cfg, want_bundle, miner)
-        for run in mine_runs
-    ]
     if n_workers == 1:
-        # sequential path — easier to debug, no pickling overhead
-        for i, (run, payload) in enumerate(zip(mine_runs, payloads), 1):
-            m_cfg = lattice_metrics[run.cfg]
-            red_cfg = behavior_reduction(lattice_metrics, bottom_cfg, run.cfg)
-            comp_cfg = behavior_compression(lattice_metrics, bottom_cfg, run.cfg)
-            status(f'[mine] configuration {i}/{n_to_mine}')
-            print(f'[mine] cfg {i}/{n_to_mine}  {_fmt_cfg(run.cfg, types, level_names)}'
-                  f'  (K={run.K}/{run.n_executions}, s={m_cfg.s:.1f},'
-                  f' reduction={_pct(red_cfg)}, compression={_pct(comp_cfg)})')
-            cfg_key, scored, bundled, mining_stats = _mine_worker(payload)
+        # sequential: mine bottom_cfg if not yet done (was already streamed inline above)
+        for run in mine_runs:
+            if run.cfg not in mining_stats_by_cfg:
+                _stream_mine(run)
+    else:
+        # parallel: submit bottom_cfg and any other not-yet-submitted runs
+        already = {r.cfg for r in _pending.values()}
+        for run in mine_runs:
+            if run.cfg not in already and run.cfg not in mining_stats_by_cfg:
+                _payload = (run, kpi_values, primary_kpi_name, s_abs_min, s_abs_max,
+                            max_edges, beam_width, min_support, top_k_per_cfg, want_bundle, miner)
+                _pending[executor.submit(_mine_worker, _payload)] = run
+        n_total = len(_pending)
+        done = 0
+        for fut in concurrent.futures.as_completed(_pending):
+            run = _pending[fut]
+            done += 1
+            cfg_key, scored, bundled, mining_stats = fut.result()
+            m_cfg = lattice_metrics[cfg_key]
+            red_cfg = behavior_reduction(lattice_metrics, bottom_cfg, cfg_key)
+            comp_cfg = behavior_compression(lattice_metrics, bottom_cfg, cfg_key)
             all_scored.extend(scored)
             mining_stats_by_cfg[cfg_key] = mining_stats
             if want_bundle:
                 bundle_by_cfg[cfg_key] = bundled
             run.behaviors = []
             run.iso_ids = []
+            status(f'[mine] {done}/{n_total} done')
             if not quiet:
-                print(f'        → {len(scored)} behaviors kept (top-{top_k_per_cfg} by KPI)')
-    else:
-        # parallel path
-        with concurrent.futures.ProcessPoolExecutor(max_workers=n_workers) as executor:
-            future_to_run = {executor.submit(_mine_worker, p): r for p, r in zip(payloads, mine_runs)}
-            done = 0
-            for fut in concurrent.futures.as_completed(future_to_run):
-                run = future_to_run[fut]
-                done += 1
-                cfg_key, scored, bundled, mining_stats = fut.result()
-                m_cfg = lattice_metrics[cfg_key]
-                red_cfg = behavior_reduction(lattice_metrics, bottom_cfg, cfg_key)
-                comp_cfg = behavior_compression(lattice_metrics, bottom_cfg, cfg_key)
-                all_scored.extend(scored)
-                mining_stats_by_cfg[cfg_key] = mining_stats
-                if want_bundle:
-                    bundle_by_cfg[cfg_key] = bundled
-                run.behaviors = []
-                run.iso_ids = []
-                status(f'[mine] {done}/{n_to_mine} done')
-                if not quiet:
-                    print(f'[mine] {done}/{n_to_mine}  {_fmt_cfg(cfg_key, types, level_names)}'
-                          f'  → {len(scored)} behaviors  (K={run.K}, s={m_cfg.s:.1f},'
-                          f' reduction={_pct(red_cfg)}, compression={_pct(comp_cfg)})')
+                print(f'[mine] {done}/{n_total}  {_fmt_cfg(cfg_key, types, level_names)}'
+                      f'  → {len(scored)} behaviors  (K={run.K}, s={m_cfg.s:.1f},'
+                      f' reduction={_pct(red_cfg)}, compression={_pct(comp_cfg)})')
+        executor.shutdown(wait=False)
     timings['subgraph_mining_and_kpi_scoring'] = time.time() - t_mine_start
     all_scored.sort(key=lambda p: -p.delta)
     top = all_scored[:top_k]
