@@ -2,6 +2,7 @@
 from __future__ import annotations
 import argparse
 import csv
+import concurrent.futures
 import datetime as _dt
 import html
 import itertools
@@ -400,7 +401,7 @@ class CfgRun:
 class CfgTimingRow:
     dataset: str
     cfg: str
-    phi: str
+    abstraction: str
     interesting: bool
     reason_skipped: str
     K: int
@@ -408,32 +409,32 @@ class CfgTimingRow:
     K_ratio: float
     cfg_height: int
     cfg_height_norm: float
-    avg_behavior_size: float
+    avg_abstraction_size: float
     support_min: int
     support_mean: float
     support_max: int
-    reduction_from_bottom: float
-    compression_from_bottom: float
-    behavior_time_s: float
+    reduction: float
+    compression: float
+    abstraction_time_s: float
     mining_time_s: Optional[float] = None
     miner: str = ''
     n_graphs: int = 0
     avg_mining_graph_size: float = 0.0
     total_mining_graph_size: int = 0
     min_support_effective: int = 0
-    n_patterns_raw: int = 0
-    n_patterns_in_window: int = 0
-    pattern_support_min: int = 0
-    pattern_support_mean: float = 0.0
-    pattern_support_median: float = 0.0
-    pattern_support_max: int = 0
-    pattern_support_ratio_mean: float = 0.0
-    pattern_support_ratio_median: float = 0.0
-    pattern_support_ratio_max: float = 0.0
+    n_behaviors_raw: int = 0
+    n_behaviors_in_window: int = 0
+    behavior_support_min: int = 0
+    behavior_support_mean: float = 0.0
+    behavior_support_median: float = 0.0
+    behavior_support_max: int = 0
+    behavior_support_ratio_mean: float = 0.0
+    behavior_support_ratio_median: float = 0.0
+    behavior_support_ratio_max: float = 0.0
     high_support_threshold_ratio: float = 0.25
     high_support_threshold_abs: int = 0
-    n_high_support_patterns: int = 0
-    high_support_pattern_ratio: float = 0.0
+    n_high_support_behaviors: int = 0
+    high_support_behavior_ratio: float = 0.0
 
 def _top_cfg(types, hierarchies) -> Tuple[int, ...]:
     return tuple((hierarchies[tau].k for tau in types))
@@ -510,9 +511,9 @@ class BundleCfgRun:
     is_interesting: bool
     reason_skipped: str
     iso_ids: List[int]
-    reduction_from_bottom: float = 0.0
-    compression_from_bottom: float = 0.0
-    avg_behavior_size: float = 0.0
+    reduction: float = 0.0
+    compression: float = 0.0
+    avg_abstraction_size: float = 0.0
     patterns: List[BundlePattern] = field(default_factory=list)
 
 @dataclass
@@ -536,7 +537,7 @@ class RunBundle:
     n_cfg_total: int
     n_cfg_interesting: int
     n_cfg_skipped: int
-    n_patterns_total: int
+    n_behaviors_total: int
 
 def save_bundle(bundle: RunBundle, path: str) -> None:
     with open(path, 'wb') as f:
@@ -626,7 +627,7 @@ def _merge_equivalent_bundle_patterns(bundled: List[BundlePattern], verbose: boo
         merged_list.append(BundlePattern(cfg=bp0.cfg, pattern=Pmerged, signature=new_sig, support=bp0.support, n_graphs=bp0.n_graphs, size_nodes=Pmerged.number_of_nodes(), size_edges=size_edges, in_exec_idx=bp0.in_exec_idx, out_exec_idx=bp0.out_exec_idx, kpi_stats=bp0.kpi_stats))
         n_collapsed += len(items) - 1
     if verbose and n_collapsed > 0:
-        print(f'[merge] collapsed {n_collapsed} duplicate-edge-label patterns into {len(merged_list)} entries (was {len(bundled)})')
+        print(f'[merge] collapsed {n_collapsed} duplicate-edge-label behaviors into {len(merged_list)} entries (was {len(bundled)})')
     return (merged_list, n_collapsed)
 
 def _merge_equivalent_lifted_patterns(lifted: List[LiftedPattern], verbose: bool=False) -> List[LiftedPattern]:
@@ -682,7 +683,7 @@ def _mine_and_score(run: CfgRun, kpi_values: Dict[str, List[float]], primary_kpi
             g_to_ex.append(i)
     n_g = len(graphs)
     if n_g == 0:
-        return ([], [], {'mining_time_s': 0.0, 'miner': miner, 'n_graphs': 0, 'avg_mining_graph_size': 0.0, 'total_mining_graph_size': 0, 'min_support_effective': max(min_support, s_min_abs), 'n_patterns_raw': 0, 'n_patterns_in_window': 0})
+        return ([], [], {'mining_time_s': 0.0, 'miner': miner, 'n_graphs': 0, 'avg_mining_graph_size': 0.0, 'total_mining_graph_size': 0, 'min_support_effective': max(min_support, s_min_abs), 'n_behaviors_raw': 0, 'n_behaviors_in_window': 0})
     effective_min = max(min_support, s_min_abs)
     UNBOUNDED_K = 10 ** 9
     t_mining = time.perf_counter()
@@ -713,11 +714,11 @@ def _mine_and_score(run: CfgRun, kpi_values: Dict[str, List[float]], primary_kpi
     pattern_support_ratio_median = pattern_support_median / n_exec
     HIGH_SUPPORT_RATIO = 0.25
     high_support_threshold_abs = max(1, int(HIGH_SUPPORT_RATIO * n_exec))
-    n_high_support_patterns = sum((1 for s in supports if s >= high_support_threshold_abs))
-    high_support_pattern_ratio = n_high_support_patterns / len(supports) if supports else 0.0
+    n_high_support_behaviors = sum((1 for s in supports if s >= high_support_threshold_abs))
+    high_support_behavior_ratio = n_high_support_behaviors / len(supports) if supports else 0.0
     total_mining_graph_size = sum((g.number_of_nodes() + g.number_of_edges() for g in graphs))
     avg_mining_graph_size = total_mining_graph_size / n_g if n_g else 0.0
-    mining_stats = {'mining_time_s': mining_time_s, 'miner': miner, 'n_graphs': n_g, 'avg_mining_graph_size': avg_mining_graph_size, 'total_mining_graph_size': total_mining_graph_size, 'min_support_effective': effective_min, 'n_patterns_raw': len(all_patterns), 'n_patterns_in_window': len(in_window), 'pattern_support_min': pattern_support_min, 'pattern_support_mean': pattern_support_mean, 'pattern_support_median': pattern_support_median, 'pattern_support_max': pattern_support_max, 'pattern_support_ratio_mean': pattern_support_ratio_mean, 'pattern_support_ratio_median': pattern_support_ratio_median, 'pattern_support_ratio_max': pattern_support_ratio_max, 'high_support_threshold_ratio': HIGH_SUPPORT_RATIO, 'high_support_threshold_abs': high_support_threshold_abs, 'n_high_support_patterns': n_high_support_patterns, 'high_support_pattern_ratio': high_support_pattern_ratio}
+    mining_stats = {'mining_time_s': mining_time_s, 'miner': miner, 'n_graphs': n_g, 'avg_mining_graph_size': avg_mining_graph_size, 'total_mining_graph_size': total_mining_graph_size, 'min_support_effective': effective_min, 'n_behaviors_raw': len(all_patterns), 'n_behaviors_in_window': len(in_window), 'behavior_support_min': pattern_support_min, 'behavior_support_mean': pattern_support_mean, 'behavior_support_median': pattern_support_median, 'behavior_support_max': pattern_support_max, 'behavior_support_ratio_mean': pattern_support_ratio_mean, 'behavior_support_ratio_median': pattern_support_ratio_median, 'behavior_support_ratio_max': pattern_support_ratio_max, 'high_support_threshold_ratio': HIGH_SUPPORT_RATIO, 'high_support_threshold_abs': high_support_threshold_abs, 'n_high_support_behaviors': n_high_support_behaviors, 'high_support_behavior_ratio': high_support_behavior_ratio}
     if verbose:
         sups = sorted((mp.support for mp in all_patterns), reverse=True)
         if sups:
@@ -806,8 +807,8 @@ class RunStats:
     n_cfg_total: int
     n_cfg_interesting: int
     n_cfg_skipped: int
-    n_patterns_total: int
-    n_patterns_feas: int
+    n_behaviors_total: int
+    n_behaviors_feas: int
 
 @dataclass(frozen=True)
 class LatticeNodeMetrics:
@@ -824,12 +825,12 @@ def _cfg_height(cfg: Tuple[int, ...], types: List[str], hierarchies: Dict[str, O
     return sum((hierarchies[types[i]].height(cfg[i]) for i in range(len(types))))
 
 def save_cfg_timing_csv(path: str, rows: List[CfgTimingRow]) -> None:
-    fieldnames = ['dataset', 'cfg', 'phi', 'interesting', 'reason_skipped', 'K', 'n_executions', 'K_ratio', 'cfg_height', 'cfg_height_norm', 'avg_behavior_size', 'support_min', 'support_mean', 'support_max', 'reduction_from_bottom', 'compression_from_bottom', 'behavior_time_s', 'mining_time_s', 'miner', 'n_graphs', 'avg_mining_graph_size', 'total_mining_graph_size', 'min_support_effective', 'n_patterns_raw', 'n_patterns_in_window', 'pattern_support_min', 'pattern_support_mean', 'pattern_support_median', 'pattern_support_max', 'pattern_support_ratio_mean', 'pattern_support_ratio_median', 'pattern_support_ratio_max', 'high_support_threshold_ratio', 'high_support_threshold_abs', 'n_high_support_patterns', 'high_support_pattern_ratio']
+    fieldnames = ['dataset', 'cfg', 'abstraction', 'interesting', 'reason_skipped', 'K', 'n_executions', 'K_ratio', 'cfg_height', 'cfg_height_norm', 'avg_abstraction_size', 'support_min', 'support_mean', 'support_max', 'reduction', 'compression', 'abstraction_time_s', 'mining_time_s', 'miner', 'n_graphs', 'avg_mining_graph_size', 'total_mining_graph_size', 'min_support_effective', 'n_behaviors_raw', 'n_behaviors_in_window', 'behavior_support_min', 'behavior_support_mean', 'behavior_support_median', 'behavior_support_max', 'behavior_support_ratio_mean', 'behavior_support_ratio_median', 'behavior_support_ratio_max', 'high_support_threshold_ratio', 'high_support_threshold_abs', 'n_high_support_behaviors', 'high_support_behavior_ratio']
     with open(path, 'w', newline='', encoding='utf-8') as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
         w.writeheader()
         for r in rows:
-            w.writerow({'dataset': r.dataset, 'cfg': r.cfg, 'phi': r.phi, 'interesting': r.interesting, 'reason_skipped': r.reason_skipped, 'K': r.K, 'n_executions': r.n_executions, 'K_ratio': r.K_ratio, 'cfg_height': r.cfg_height, 'cfg_height_norm': r.cfg_height_norm, 'avg_behavior_size': r.avg_behavior_size, 'support_min': r.support_min, 'support_mean': r.support_mean, 'support_max': r.support_max, 'reduction_from_bottom': r.reduction_from_bottom, 'compression_from_bottom': r.compression_from_bottom, 'behavior_time_s': r.behavior_time_s, 'mining_time_s': '' if r.mining_time_s is None else r.mining_time_s, 'miner': r.miner, 'n_graphs': r.n_graphs, 'avg_mining_graph_size': r.avg_mining_graph_size, 'total_mining_graph_size': r.total_mining_graph_size, 'min_support_effective': r.min_support_effective, 'n_patterns_raw': r.n_patterns_raw, 'n_patterns_in_window': r.n_patterns_in_window, 'pattern_support_min': r.pattern_support_min, 'pattern_support_mean': r.pattern_support_mean, 'pattern_support_median': r.pattern_support_median, 'pattern_support_max': r.pattern_support_max, 'pattern_support_ratio_mean': r.pattern_support_ratio_mean, 'pattern_support_ratio_median': r.pattern_support_ratio_median, 'pattern_support_ratio_max': r.pattern_support_ratio_max, 'high_support_threshold_ratio': r.high_support_threshold_ratio, 'high_support_threshold_abs': r.high_support_threshold_abs, 'n_high_support_patterns': r.n_high_support_patterns, 'high_support_pattern_ratio': r.high_support_pattern_ratio})
+            w.writerow({'dataset': r.dataset, 'cfg': r.cfg, 'abstraction': r.abstraction, 'interesting': r.interesting, 'reason_skipped': r.reason_skipped, 'K': r.K, 'n_executions': r.n_executions, 'K_ratio': r.K_ratio, 'cfg_height': r.cfg_height, 'cfg_height_norm': r.cfg_height_norm, 'avg_abstraction_size': r.avg_abstraction_size, 'support_min': r.support_min, 'support_mean': r.support_mean, 'support_max': r.support_max, 'reduction': r.reduction, 'compression': r.compression, 'abstraction_time_s': r.abstraction_time_s, 'mining_time_s': '' if r.mining_time_s is None else r.mining_time_s, 'miner': r.miner, 'n_graphs': r.n_graphs, 'avg_mining_graph_size': r.avg_mining_graph_size, 'total_mining_graph_size': r.total_mining_graph_size, 'min_support_effective': r.min_support_effective, 'n_behaviors_raw': r.n_behaviors_raw, 'n_behaviors_in_window': r.n_behaviors_in_window, 'behavior_support_min': r.behavior_support_min, 'behavior_support_mean': r.behavior_support_mean, 'behavior_support_median': r.behavior_support_median, 'behavior_support_max': r.behavior_support_max, 'behavior_support_ratio_mean': r.behavior_support_ratio_mean, 'behavior_support_ratio_median': r.behavior_support_ratio_median, 'behavior_support_ratio_max': r.behavior_support_ratio_max, 'high_support_threshold_ratio': r.high_support_threshold_ratio, 'high_support_threshold_abs': r.high_support_threshold_abs, 'n_high_support_behaviors': r.n_high_support_behaviors, 'high_support_behavior_ratio': r.high_support_behavior_ratio})
 
 def behavior_reduction(metrics: Dict[Tuple, LatticeNodeMetrics], u: Tuple, v: Tuple) -> float:
     Ku = metrics[u].K
@@ -849,9 +850,9 @@ def save_cfg_metrics_csv(path: str, *, runs: List[CfgRun], types: List[str], lev
         m = lattice_metrics[run.cfg]
         red = behavior_reduction(lattice_metrics, bottom_cfg, run.cfg)
         comp = behavior_compression(lattice_metrics, bottom_cfg, run.cfg)
-        rows.append({'cfg': repr(run.cfg), 'phi': _fmt_cfg(run.cfg, types, level_names), 'interesting': run.is_interesting, 'reason_skipped': run.reason_skipped, 'K': run.K, 'n_executions': run.n_executions, 'avg_behavior_size': m.s, 'support_min': m.sup_min, 'support_mean': m.sup_mean, 'support_max': m.sup_max, 'reduction_from_bottom': red, 'compression_from_bottom': comp})
+        rows.append({'cfg': repr(run.cfg), 'abstraction': _fmt_cfg(run.cfg, types, level_names), 'interesting': run.is_interesting, 'reason_skipped': run.reason_skipped, 'K': run.K, 'n_executions': run.n_executions, 'avg_abstraction_size': m.s, 'support_min': m.sup_min, 'support_mean': m.sup_mean, 'support_max': m.sup_max, 'reduction': red, 'compression': comp})
     with open(path, 'w', newline='', encoding='utf-8') as f:
-        fieldnames = list(rows[0].keys()) if rows else ['cfg', 'phi', 'interesting', 'reason_skipped', 'K', 'n_executions', 'avg_behavior_size', 'support_min', 'support_mean', 'support_max', 'reduction_from_bottom', 'compression_from_bottom']
+        fieldnames = list(rows[0].keys()) if rows else ['cfg', 'abstraction', 'interesting', 'reason_skipped', 'K', 'n_executions', 'avg_abstraction_size', 'support_min', 'support_mean', 'support_max', 'reduction', 'compression']
         w = csv.DictWriter(f, fieldnames=fieldnames)
         w.writeheader()
         w.writerows(rows)
@@ -859,20 +860,20 @@ def save_cfg_metrics_csv(path: str, *, runs: List[CfgRun], types: List[str], lev
 def _pct(x: float) -> str:
     return 'nan' if x != x else f'{x * 100:+.1f}%'
 
-def save_run_stats_csv(path: str, *, timings: Dict[str, float], elapsed: float, types: List[str], level_names: Dict[str, List[str]], lattice_metrics: Dict[Tuple, LatticeNodeMetrics], bottom_cfg: Tuple[int, ...], top_cfg: Tuple[int, ...], n_events: int, n_objects: int, n_executions: int, n_cfg_total: int, n_cfg_interesting: int, n_cfg_mineable: int, n_cfg_skipped: int, n_patterns_total: int, n_patterns_top: int) -> None:
+def save_run_stats_csv(path: str, *, timings: Dict[str, float], elapsed: float, types: List[str], level_names: Dict[str, List[str]], lattice_metrics: Dict[Tuple, LatticeNodeMetrics], bottom_cfg: Tuple[int, ...], top_cfg: Tuple[int, ...], n_events: int, n_objects: int, n_executions: int, n_cfg_total: int, n_cfg_interesting: int, n_cfg_mineable: int, n_cfg_skipped: int, n_behaviors_total: int, n_behaviors_top: int) -> None:
     rows = []
     for name, sec in timings.items():
-        rows.append({'section': 'timing', 'name': name, 'value': sec, 'unit': 'seconds', 'cfg': '', 'K': '', 'avg_behavior_size': '', 'support_min': '', 'support_mean': '', 'support_max': '', 'reduction_from_bottom': '', 'compression_from_bottom': ''})
-    rows.append({'section': 'timing', 'name': 'total', 'value': elapsed, 'unit': 'seconds', 'cfg': '', 'K': '', 'avg_behavior_size': '', 'support_min': '', 'support_mean': '', 'support_max': '', 'reduction_from_bottom': '', 'compression_from_bottom': ''})
-    summary_values = {'n_events': n_events, 'n_objects': n_objects, 'n_executions': n_executions, 'n_object_types': len(types), 'n_cfg_total': n_cfg_total, 'n_cfg_interesting': n_cfg_interesting, 'n_cfg_mineable': n_cfg_mineable, 'n_cfg_skipped': n_cfg_skipped, 'n_patterns_total': n_patterns_total, 'n_patterns_top': n_patterns_top}
+        rows.append({'section': 'timing', 'name': name, 'value': sec, 'unit': 'seconds', 'cfg': '', 'K': '', 'avg_abstraction_size': '', 'support_min': '', 'support_mean': '', 'support_max': '', 'reduction': '', 'compression': ''})
+    rows.append({'section': 'timing', 'name': 'total', 'value': elapsed, 'unit': 'seconds', 'cfg': '', 'K': '', 'avg_abstraction_size': '', 'support_min': '', 'support_mean': '', 'support_max': '', 'reduction': '', 'compression': ''})
+    summary_values = {'n_events': n_events, 'n_objects': n_objects, 'n_executions': n_executions, 'n_object_types': len(types), 'n_cfg_total': n_cfg_total, 'n_cfg_interesting': n_cfg_interesting, 'n_cfg_mineable': n_cfg_mineable, 'n_cfg_skipped': n_cfg_skipped, 'n_behaviors_total': n_patterns_total, 'n_behaviors_top': n_patterns_top}
     for name, value in summary_values.items():
-        rows.append({'section': 'summary', 'name': name, 'value': value, 'unit': 'count', 'cfg': '', 'K': '', 'avg_behavior_size': '', 'support_min': '', 'support_mean': '', 'support_max': '', 'reduction_from_bottom': '', 'compression_from_bottom': ''})
+        rows.append({'section': 'summary', 'name': name, 'value': value, 'unit': 'count', 'cfg': '', 'K': '', 'avg_abstraction_size': '', 'support_min': '', 'support_mean': '', 'support_max': '', 'reduction': '', 'compression': ''})
     for label, cfg in [('bottom', bottom_cfg), ('top', top_cfg)]:
         m = lattice_metrics[cfg]
         red = behavior_reduction(lattice_metrics, bottom_cfg, cfg)
         comp = behavior_compression(lattice_metrics, bottom_cfg, cfg)
-        rows.append({'section': 'lattice_node', 'name': label, 'value': '', 'unit': '', 'cfg': _fmt_cfg(cfg, types, level_names), 'K': m.K, 'avg_behavior_size': m.s, 'support_min': m.sup_min, 'support_mean': m.sup_mean, 'support_max': m.sup_max, 'reduction_from_bottom': red, 'compression_from_bottom': comp})
-    fieldnames = ['section', 'name', 'value', 'unit', 'cfg', 'K', 'avg_behavior_size', 'support_min', 'support_mean', 'support_max', 'reduction_from_bottom', 'compression_from_bottom']
+        rows.append({'section': 'lattice_node', 'name': label, 'value': '', 'unit': '', 'cfg': _fmt_cfg(cfg, types, level_names), 'K': m.K, 'avg_abstraction_size': m.s, 'support_min': m.sup_min, 'support_mean': m.sup_mean, 'support_max': m.sup_max, 'reduction': red, 'compression': comp})
+    fieldnames = ['section', 'name', 'value', 'unit', 'cfg', 'K', 'avg_abstraction_size', 'support_min', 'support_mean', 'support_max', 'reduction', 'compression']
     with open(path, 'w', newline='', encoding='utf-8') as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
         w.writeheader()
@@ -907,7 +908,21 @@ def _level_leq(h: ObjectTypeHierarchy, a: int, b: int) -> bool:
 def _cfg_leq(cfg_a: Tuple[int, ...], cfg_b: Tuple[int, ...], types: List[str], hierarchies: Dict[str, ObjectTypeHierarchy]) -> bool:
     return all((_level_leq(hierarchies[tau], cfg_a[i], cfg_b[i]) for i, tau in enumerate(types)))
 
-def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max: float=0.8, support_abs: bool=False, top_k: int=10, max_edges: int=4, beam_width: int=12, min_support: int=2, top_k_per_cfg: int=10, exclude_attrs: Sequence[str]=(), out_html: Optional[str]=None, quiet: bool=False, kpis: Optional[List[KPI]]=None, bundle_path: Optional[str]=None, miner: str='subdue') -> Tuple[List[LiftedPattern], RunStats]:
+
+def _mine_worker(payload: tuple) -> tuple:
+    """Top-level worker for ProcessPoolExecutor — pickles cleanly."""
+    run, kpi_values, primary_kpi, s_min_abs, s_max_abs, max_edges, beam_width, min_support, top_k_per_cfg, collect_all, miner = payload
+    scored, bundled, stats = _mine_and_score(
+        run, kpi_values=kpi_values, primary_kpi=primary_kpi,
+        s_min_abs=s_min_abs, s_max_abs=s_max_abs,
+        max_edges=max_edges, beam_width=beam_width,
+        min_support=min_support, top_k_per_cfg=top_k_per_cfg,
+        verbose=False, collect_all=collect_all, miner=miner,
+    )
+    return run.cfg, scored, bundled, stats
+
+
+def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max: float=0.8, support_abs: bool=False, top_k: int=10, max_edges: int=4, beam_width: int=12, min_support: int=2, top_k_per_cfg: int=10, exclude_attrs: Sequence[str]=(), out_html: Optional[str]=None, quiet: bool=False, kpis: Optional[List[KPI]]=None, bundle_path: Optional[str]=None, miner: str='subdue', n_workers: int=1) -> Tuple[List[LiftedPattern], RunStats]:
     t0 = time.time()
     timings: Dict[str, float] = {}
 
@@ -1023,13 +1038,13 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
         red_cfg = behavior_reduction(lattice_metrics, bottom_cfg, r.cfg)
         comp_cfg = behavior_compression(lattice_metrics, bottom_cfg, r.cfg)
         status(f'[mine] configuration {n_mined}')
-        print(f'[mine] cfg {n_mined}  Φ = {_fmt_cfg(r.cfg, types, level_names)}  (K={r.K}/{r.n_executions}, s={m_cfg.s:.1f}, reduction={_pct(red_cfg)}, compression={_pct(comp_cfg)})')
+        print(f'[mine] cfg {n_mined}  {_fmt_cfg(r.cfg, types, level_names)}  (K={r.K}/{r.n_executions}, s={m_cfg.s:.1f}, reduction={_pct(red_cfg)}, compression={_pct(comp_cfg)})')
         t_mine = time.time()
         scored, bundled, mining_stats = _mine_and_score(r, kpi_values=kpi_values, primary_kpi=primary_kpi_name, s_min_abs=s_abs_min, s_max_abs=s_abs_max, max_edges=max_edges, beam_width=beam_width, min_support=min_support, top_k_per_cfg=top_k_per_cfg, verbose=not quiet, collect_all=want_bundle, miner=miner)
         total_mining_time += time.time() - t_mine
         mining_stats_by_cfg[r.cfg] = mining_stats
         if not quiet:
-            print(f'        → {len(scored)} lifted patterns kept from this cfg  (top-{top_k_per_cfg} by KPI)')
+            print(f'        → {len(scored)} behaviors kept from this cfg  (top-{top_k_per_cfg} by KPI)')
         all_scored.extend(scored)
         if want_bundle:
             bundle_by_cfg[r.cfg] = bundled
@@ -1049,23 +1064,23 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
             run = _compute_cfg(cfg, types, executions, hierarchies, obj_types_map)
         class_sizes = Counter(run.iso_ids)
         behavior_sizes = [_behavior_size(b) for b in run.behaviors]
-        avg_behavior_size = sum(behavior_sizes) / len(behavior_sizes) if behavior_sizes else 0.0
+        avg_abstraction_size = sum(behavior_sizes) / len(behavior_sizes) if behavior_sizes else 0.0
         cfg_height = _cfg_height(cfg, types, hierarchies)
         if class_sizes:
             _cs = list(class_sizes.values())
             _mean = run.n_executions / run.K if run.K else 0.0
             print(f'[iso] cfg={cfg}  h={cfg_height}  K={run.K}/{run.n_executions}'
-                  f'  s={avg_behavior_size:.2f}  class sizes min={min(_cs)} mean={_mean:.2f} max={max(_cs)}')
+                  f'  s={avg_abstraction_size:.2f}  class sizes min={min(_cs)} mean={_mean:.2f} max={max(_cs)}')
         else:
             print(f'[iso] cfg={cfg}  h={cfg_height}  K={run.K}/{run.n_executions}'
-                  f'  s={avg_behavior_size:.2f}  class sizes (empty)')
+                  f'  s={avg_abstraction_size:.2f}  class sizes (empty)')
         total_behavior_time += run.behavior_time_s
         total_iso_time += run.iso_time_s
         runs_by_cfg[cfg] = run
         if cfg != bottom_cfg and run.K == bottom_len:
             pruned_cfgs.add(cfg)
             if not quiet:
-                print(f'[prune] K=n_executions={run.K}, Φ = {_fmt_cfg(cfg, types, level_names)}')
+                print(f'[prune] K=n_executions={run.K}, {_fmt_cfg(cfg, types, level_names)}')
         ok, why = _is_interesting(run)
         run.is_interesting = ok
         run.reason_skipped = why
@@ -1073,8 +1088,7 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
         _stash_lattice_metrics(run)
         if ok:
             runs.append(run)
-            if cfg != bottom_cfg:
-                _stream_mine(run)
+            # behaviors kept in memory; mined in parallel after the loop
         else:
             n_skipped += 1
             if cfg != bottom_cfg:
@@ -1095,24 +1109,71 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
         print(f'[cfg ] {len(mine_runs)} mineable')
     if not quiet:
         if bottom_cfg not in lattice_metrics:
-            print('[latt] bottom Φ was pruned; skipping bottom-based lattice report')
+            print('[latt] bottom abstraction was pruned; skipping lattice report')
         else:
             mb = lattice_metrics[bottom_cfg]
-            print('[latt] reduction/compression measured from bottom Φ')
-            print(f'bottom cfg = {_fmt_cfg(bottom_cfg, types, level_names)}')
+            print('[latt] reduction/compression measured from bottom abstraction')
+            print(f'bottom abstraction = {_fmt_cfg(bottom_cfg, types, level_names)}')
             print(f'bottom abs = {mb.K}, bottom s = {mb.s:.2f}')
             print('[latt] per-configuration reduction/compression from bottom:')
             for run in all_runs:
                 m_cfg = lattice_metrics[run.cfg]
                 red_cfg = behavior_reduction(lattice_metrics, bottom_cfg, run.cfg)
                 comp_cfg = behavior_compression(lattice_metrics, bottom_cfg, run.cfg)
-                print(f'cfg = {_fmt_cfg(run.cfg, types, level_names)}  K={run.K}/{run.n_executions}, s={m_cfg.s:.2f}, reduction_from_bottom={red_cfg:+.4f} {_pct(red_cfg)}, behavior_compression={comp_cfg:+.4f} {_pct(comp_cfg)}, support=[{m_cfg.sup_min}, {m_cfg.sup_mean:.2f}, {m_cfg.sup_max}], interesting={run.is_interesting}')
-    status(f'[mine] finalising deferred mining ({len(runs)} streaming + bottom Φ at end) …')
-    for run in mine_runs:
-        if run.cfg in mining_stats_by_cfg:
-            continue
-        _stream_mine(run)
-    timings['subgraph_mining_and_kpi_scoring'] = total_mining_time
+                print(f'{_fmt_cfg(run.cfg, types, level_names)}  K={run.K}/{run.n_executions}, s={m_cfg.s:.2f}, reduction={_pct(red_cfg)}, compression={_pct(comp_cfg)}, support=[{m_cfg.sup_min}, {m_cfg.sup_mean:.2f}, {m_cfg.sup_max}], interesting={run.is_interesting}')
+    n_to_mine = len(mine_runs)
+    status(f'[mine] mining {n_to_mine} configurations (workers={n_workers}) …')
+    if not quiet:
+        print(f'[mine] starting subgraph mining on {n_to_mine} configurations (workers={n_workers})')
+    t_mine_start = time.time()
+    payloads = [
+        (run, kpi_values, primary_kpi_name, s_abs_min, s_abs_max,
+         max_edges, beam_width, min_support, top_k_per_cfg, want_bundle, miner)
+        for run in mine_runs
+    ]
+    if n_workers == 1:
+        # sequential path — easier to debug, no pickling overhead
+        for i, (run, payload) in enumerate(zip(mine_runs, payloads), 1):
+            m_cfg = lattice_metrics[run.cfg]
+            red_cfg = behavior_reduction(lattice_metrics, bottom_cfg, run.cfg)
+            comp_cfg = behavior_compression(lattice_metrics, bottom_cfg, run.cfg)
+            status(f'[mine] configuration {i}/{n_to_mine}')
+            print(f'[mine] cfg {i}/{n_to_mine}  {_fmt_cfg(run.cfg, types, level_names)}'
+                  f'  (K={run.K}/{run.n_executions}, s={m_cfg.s:.1f},'
+                  f' reduction={_pct(red_cfg)}, compression={_pct(comp_cfg)})')
+            cfg_key, scored, bundled, mining_stats = _mine_worker(payload)
+            all_scored.extend(scored)
+            mining_stats_by_cfg[cfg_key] = mining_stats
+            if want_bundle:
+                bundle_by_cfg[cfg_key] = bundled
+            run.behaviors = []
+            run.iso_ids = []
+            if not quiet:
+                print(f'        → {len(scored)} behaviors kept (top-{top_k_per_cfg} by KPI)')
+    else:
+        # parallel path
+        with concurrent.futures.ProcessPoolExecutor(max_workers=n_workers) as executor:
+            future_to_run = {executor.submit(_mine_worker, p): r for p, r in zip(payloads, mine_runs)}
+            done = 0
+            for fut in concurrent.futures.as_completed(future_to_run):
+                run = future_to_run[fut]
+                done += 1
+                cfg_key, scored, bundled, mining_stats = fut.result()
+                m_cfg = lattice_metrics[cfg_key]
+                red_cfg = behavior_reduction(lattice_metrics, bottom_cfg, cfg_key)
+                comp_cfg = behavior_compression(lattice_metrics, bottom_cfg, cfg_key)
+                all_scored.extend(scored)
+                mining_stats_by_cfg[cfg_key] = mining_stats
+                if want_bundle:
+                    bundle_by_cfg[cfg_key] = bundled
+                run.behaviors = []
+                run.iso_ids = []
+                status(f'[mine] {done}/{n_to_mine} done')
+                if not quiet:
+                    print(f'[mine] {done}/{n_to_mine}  {_fmt_cfg(cfg_key, types, level_names)}'
+                          f'  → {len(scored)} behaviors  (K={run.K}, s={m_cfg.s:.1f},'
+                          f' reduction={_pct(red_cfg)}, compression={_pct(comp_cfg)})')
+    timings['subgraph_mining_and_kpi_scoring'] = time.time() - t_mine_start
     all_scored.sort(key=lambda p: -p.delta)
     top = all_scored[:top_k]
     dataset_name = Path(ocel_path).stem
@@ -1127,20 +1188,20 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
         red_cfg = behavior_reduction(lattice_metrics, bottom_cfg, run.cfg)
         comp_cfg = behavior_compression(lattice_metrics, bottom_cfg, run.cfg)
         mining_stats = mining_stats_by_cfg.get(run.cfg, {})
-        timing_rows.append(CfgTimingRow(dataset=dataset_name, cfg=repr(run.cfg), phi=_fmt_cfg(run.cfg, types, level_names), interesting=run.is_interesting, reason_skipped=run.reason_skipped, K=run.K, n_executions=run.n_executions, K_ratio=k_ratio, cfg_height=h, cfg_height_norm=h_norm, avg_behavior_size=m_cfg.s, support_min=m_cfg.sup_min, support_mean=m_cfg.sup_mean, support_max=m_cfg.sup_max, reduction_from_bottom=red_cfg, compression_from_bottom=comp_cfg, behavior_time_s=run.behavior_time_s, mining_time_s=mining_stats.get('mining_time_s'), miner=mining_stats.get('miner', ''), n_graphs=mining_stats.get('n_graphs', 0), avg_mining_graph_size=mining_stats.get('avg_mining_graph_size', 0.0), total_mining_graph_size=mining_stats.get('total_mining_graph_size', 0), min_support_effective=mining_stats.get('min_support_effective', 0), n_patterns_raw=mining_stats.get('n_patterns_raw', 0), n_patterns_in_window=mining_stats.get('n_patterns_in_window', 0), pattern_support_min=mining_stats.get('pattern_support_min', 0), pattern_support_mean=mining_stats.get('pattern_support_mean', 0.0), pattern_support_median=mining_stats.get('pattern_support_median', 0.0), pattern_support_max=mining_stats.get('pattern_support_max', 0), pattern_support_ratio_mean=mining_stats.get('pattern_support_ratio_mean', 0.0), pattern_support_ratio_median=mining_stats.get('pattern_support_ratio_median', 0.0), pattern_support_ratio_max=mining_stats.get('pattern_support_ratio_max', 0.0), high_support_threshold_ratio=mining_stats.get('high_support_threshold_ratio', 0.25), high_support_threshold_abs=mining_stats.get('high_support_threshold_abs', 0), n_high_support_patterns=mining_stats.get('n_high_support_patterns', 0), high_support_pattern_ratio=mining_stats.get('high_support_pattern_ratio', 0.0)))
+        timing_rows.append(CfgTimingRow(dataset=dataset_name, cfg=repr(run.cfg), abstraction=_fmt_cfg(run.cfg, types, level_names), interesting=run.is_interesting, reason_skipped=run.reason_skipped, K=run.K, n_executions=run.n_executions, K_ratio=k_ratio, cfg_height=h, cfg_height_norm=h_norm, avg_abstraction_size=m_cfg.s, support_min=m_cfg.sup_min, support_mean=m_cfg.sup_mean, support_max=m_cfg.sup_max, reduction=red_cfg, compression=comp_cfg, abstraction_time_s=run.behavior_time_s, mining_time_s=mining_stats.get('mining_time_s'), miner=mining_stats.get('miner', ''), n_graphs=mining_stats.get('n_graphs', 0), avg_mining_graph_size=mining_stats.get('avg_mining_graph_size', 0.0), total_mining_graph_size=mining_stats.get('total_mining_graph_size', 0), min_support_effective=mining_stats.get('min_support_effective', 0), n_behaviors_raw=mining_stats.get('n_behaviors_raw', 0), n_behaviors_in_window=mining_stats.get('n_behaviors_in_window', 0), behavior_support_min=mining_stats.get('behavior_support_min', 0), behavior_support_mean=mining_stats.get('behavior_support_mean', 0.0), behavior_support_median=mining_stats.get('behavior_support_median', 0.0), behavior_support_max=mining_stats.get('behavior_support_max', 0), behavior_support_ratio_mean=mining_stats.get('behavior_support_ratio_mean', 0.0), behavior_support_ratio_median=mining_stats.get('behavior_support_ratio_median', 0.0), behavior_support_ratio_max=mining_stats.get('behavior_support_ratio_max', 0.0), high_support_threshold_ratio=mining_stats.get('high_support_threshold_ratio', 0.25), high_support_threshold_abs=mining_stats.get('high_support_threshold_abs', 0), n_high_support_behaviors=mining_stats.get('n_high_support_behaviors', 0), high_support_behavior_ratio=mining_stats.get('high_support_behavior_ratio', 0.0)))
     cfg_timing_csv = str(p.with_name(p.stem + '_cfg_timing.csv'))
     save_cfg_timing_csv(cfg_timing_csv, timing_rows)
     if not quiet:
         print(f'[csv ] per-configuration timings written to {cfg_timing_csv}')
-    stats = RunStats(n_events=len(ocel.events), n_objects=len(ocel.objects), n_executions=len(executions), types=types, n_cfg_total=len(all_cfgs), n_cfg_interesting=len(runs), n_cfg_skipped=n_skipped + n_metric_skipped, n_patterns_total=len(all_scored), n_patterns_feas=len(top))
+    stats = RunStats(n_events=len(ocel.events), n_objects=len(ocel.objects), n_executions=len(executions), types=types, n_cfg_total=len(all_cfgs), n_cfg_interesting=len(runs), n_cfg_skipped=n_skipped + n_metric_skipped, n_behaviors_total=len(all_scored), n_behaviors_feas=len(top))
     elapsed = time.time() - t0
     top_cfg = _top_cfg(types, hierarchies)
     p = Path(ocel_path)
     stats_csv = str(p.with_suffix('.csv'))
-    save_run_stats_csv(stats_csv, timings=timings, elapsed=elapsed, types=types, level_names=level_names, lattice_metrics=lattice_metrics, bottom_cfg=bottom_cfg, top_cfg=top_cfg, n_events=stats.n_events, n_objects=stats.n_objects, n_executions=stats.n_executions, n_cfg_total=stats.n_cfg_total, n_cfg_interesting=stats.n_cfg_interesting, n_cfg_mineable=len(mine_runs), n_cfg_skipped=stats.n_cfg_skipped, n_patterns_total=len(all_scored), n_patterns_top=len(top))
+    save_run_stats_csv(stats_csv, timings=timings, elapsed=elapsed, types=types, level_names=level_names, lattice_metrics=lattice_metrics, bottom_cfg=bottom_cfg, top_cfg=top_cfg, n_events=stats.n_events, n_objects=stats.n_objects, n_executions=stats.n_executions, n_cfg_total=stats.n_cfg_total, n_cfg_interesting=stats.n_cfg_interesting, n_cfg_mineable=len(mine_runs), n_cfg_skipped=stats.n_cfg_skipped, n_behaviors_total=len(all_scored), n_behaviors_top=len(top))
     if out_html:
         if not quiet:
-            print(f'[html] rendering {len(top)} patterns → {out_html}')
+            print(f'[html] rendering {len(top)} behaviors → {out_html}')
         max_delta = max((p.delta for p in top), default=1.0) or 1.0
         items = []
         for pat in top:
@@ -1156,11 +1217,11 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
             pats = bundle_by_cfg.get(run.cfg, [])
             n_patterns_total += len(pats)
             m_cfg = lattice_metrics[run.cfg]
-            bundle_runs.append(BundleCfgRun(cfg=run.cfg, K=run.K, n_executions=run.n_executions, is_interesting=run.is_interesting, reason_skipped=run.reason_skipped, iso_ids=list(run.iso_ids), reduction_from_bottom=behavior_reduction(lattice_metrics, bottom_cfg, run.cfg), compression_from_bottom=behavior_compression(lattice_metrics, bottom_cfg, run.cfg), avg_behavior_size=m_cfg.s, patterns=pats))
-        bundle = RunBundle(ocel_path=ocel_path, leading_type=leading_type, timestamp_iso=_dt.datetime.utcnow().isoformat() + 'Z', elapsed_s=elapsed, args={'s_min': s_min, 's_max': s_max, 'support_abs': support_abs, 'top_k': top_k, 'max_edges': max_edges, 'beam_width': beam_width, 'min_support': min_support, 'top_k_per_cfg': top_k_per_cfg, 'exclude_attrs': list(exclude_attrs), 's_abs_min': s_abs_min, 's_abs_max': s_abs_max, 'miner': miner, 'bottom_cfg': bottom_cfg}, types=types, obj_types_map=obj_types_map, level_names=level_names, per_type_attrs=per_type_attrs, executions=executions, kpi_specs=[{'name': k.name, 'unit': k.unit, 'description': k.description} for k in kpis], kpi_values=kpi_values, primary_kpi=primary_kpi_name, cfg_runs=bundle_runs, n_events=stats.n_events, n_objects=stats.n_objects, n_cfg_total=stats.n_cfg_total, n_cfg_interesting=stats.n_cfg_interesting, n_cfg_skipped=stats.n_cfg_skipped, n_patterns_total=n_patterns_total)
+            bundle_runs.append(BundleCfgRun(cfg=run.cfg, K=run.K, n_executions=run.n_executions, is_interesting=run.is_interesting, reason_skipped=run.reason_skipped, iso_ids=list(run.iso_ids), reduction=behavior_reduction(lattice_metrics, bottom_cfg, run.cfg), compression=behavior_compression(lattice_metrics, bottom_cfg, run.cfg), avg_abstraction_size=m_cfg.s, patterns=pats))
+        bundle = RunBundle(ocel_path=ocel_path, leading_type=leading_type, timestamp_iso=_dt.datetime.utcnow().isoformat() + 'Z', elapsed_s=elapsed, args={'s_min': s_min, 's_max': s_max, 'support_abs': support_abs, 'top_k': top_k, 'max_edges': max_edges, 'beam_width': beam_width, 'min_support': min_support, 'top_k_per_cfg': top_k_per_cfg, 'exclude_attrs': list(exclude_attrs), 's_abs_min': s_abs_min, 's_abs_max': s_abs_max, 'miner': miner, 'bottom_cfg': bottom_cfg}, types=types, obj_types_map=obj_types_map, level_names=level_names, per_type_attrs=per_type_attrs, executions=executions, kpi_specs=[{'name': k.name, 'unit': k.unit, 'description': k.description} for k in kpis], kpi_values=kpi_values, primary_kpi=primary_kpi_name, cfg_runs=bundle_runs, n_events=stats.n_events, n_objects=stats.n_objects, n_cfg_total=stats.n_cfg_total, n_cfg_interesting=stats.n_cfg_interesting, n_cfg_skipped=stats.n_cfg_skipped, n_behaviors_total=n_patterns_total)
         save_bundle(bundle, bundle_path)
         if not quiet:
-            print(f'[bund] wrote {n_patterns_total} patterns across {len(bundle_runs)} Φ to {bundle_path}')
+            print(f'[bund] wrote {n_patterns_total} behaviors across {len(bundle_runs)} abstractions to {bundle_path}')
     cfg_csv = str(p.with_name(p.stem + '_configs.csv'))
     save_cfg_metrics_csv(cfg_csv, runs=all_runs, types=types, level_names=level_names, lattice_metrics=lattice_metrics, bottom_cfg=bottom_cfg)
     if not quiet:
@@ -1171,7 +1232,7 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
 def _print_top(top: List[LiftedPattern], types: List[str], level_names: Dict[str, List[str]]) -> None:
     bar = '─' * 78
     print(bar)
-    print(f'TOP {len(top)} KPI patterns')
+    print(f'TOP {len(top)} behaviors by KPI')
     print(bar)
     for i, p in enumerate(top, 1):
         sign = '+' if p.signed_delta >= 0 else '−'
@@ -1199,6 +1260,7 @@ def main(argv: Optional[List[str]]=None) -> int:
     ap.add_argument('--out', default=None, help='Output HTML path. Default: rho_lift_report.html inside the input OCEL directory. Pass empty string to skip.')
     ap.add_argument('--bundle', default=None, help='If set, save the full run (all Φ, all patterns, all KPIs) to this .pkl file for the interactive explorer (rho_explorer.py).')
     ap.add_argument('--kpi', action='append', default=None, help="KPI(s) to compute. Can be passed multiple times. Built-ins: duration, n_events, n_objects, n_activities, event_density. Custom: 'name:=EXPR' or just 'EXPR'. The first --kpi is the PRIMARY KPI used for KPI ranking (default: duration).")
+    ap.add_argument('--workers', type=int, default=1, help='Number of parallel workers for subgraph mining. Default: 1 (sequential). Set to -1 to use all CPU cores.')
     ap.add_argument('--quiet', action='store_true', help='Silence progress logs.')
     args = ap.parse_args(argv)
     excl = [a.strip() for a in args.exclude_attrs.split(',') if a.strip()]
@@ -1209,7 +1271,8 @@ def main(argv: Optional[List[str]]=None) -> int:
         out_h = args.out
     else:
         out_h = None
-    top, stats = run_pipeline(ocel_path=args.ocel, leading_type=args.leading, s_min=args.s_min, s_max=args.s_max, support_abs=args.support_abs, top_k=args.top_k, max_edges=args.max_edges, beam_width=args.beam, min_support=args.min_support, top_k_per_cfg=args.top_k_per_cfg, exclude_attrs=excl, out_html=out_h, quiet=args.quiet, kpis=kpis, bundle_path=args.bundle, miner=args.miner)
+    n_w = os.cpu_count() if args.workers == -1 else args.workers
+    top, stats = run_pipeline(ocel_path=args.ocel, leading_type=args.leading, s_min=args.s_min, s_max=args.s_max, support_abs=args.support_abs, top_k=args.top_k, max_edges=args.max_edges, beam_width=args.beam, min_support=args.min_support, top_k_per_cfg=args.top_k_per_cfg, exclude_attrs=excl, out_html=out_h, quiet=args.quiet, kpis=kpis, bundle_path=args.bundle, miner=args.miner, n_workers=n_w)
     ocel = _load_ocel_sqlite_pm4py(args.ocel)
     obj_types_map = dict(zip(ocel.objects[OBJ_ID], ocel.objects['ocel:type']))
     types = sorted(set(obj_types_map.values()))

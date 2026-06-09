@@ -74,6 +74,7 @@ def run_mining(
     support_abs: bool,
     quiet: bool,
     extra_args: list[str],
+    n_workers: int = 1,
 ) -> None:
     cmd = [
         sys.executable, str(_ROOT / "rho_lift.py"),
@@ -90,6 +91,8 @@ def run_mining(
         cmd.append("--support-abs")
     if quiet:
         cmd.append("--quiet")
+    if n_workers != 1:
+        cmd += ["--workers", str(n_workers)]
     cmd.extend(extra_args)
 
     print(f"\n[mine] {' '.join(cmd)}")
@@ -182,6 +185,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Interpret --s-min/--s-max as absolute counts. "
              "Enabled automatically when defaults are used.",
     )
+    mine.add_argument("--workers", type=int, default=1,
+        help="Parallel workers for subgraph mining. Use -1 for all CPU cores (default: 1).")
     mine.add_argument("--quiet", action="store_true", help="Silence rho_lift progress logs.")
 
     # ── explorer ──────────────────────────────────────────────────────────────
@@ -255,11 +260,13 @@ def main(argv=None) -> int:
             print(f"[pipeline] Could not count executions; using fractions "
                   f"s-min={s_min}, s-max={s_max}")
 
+    n_w = __import__('os').cpu_count() if args.workers == -1 else args.workers
     run_mining(
         mining_input, args.bundle, args.leading,
         args.miner, kpis,
         s_min, s_max, support_abs,
         args.quiet, extra_mining_args,
+        n_workers=n_w,
     )
 
     print(f"\n[pipeline] Bundle saved to: {args.bundle}")
