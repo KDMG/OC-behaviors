@@ -870,7 +870,7 @@ def run_auto(input_path: str, output_path: str, remove_types: list[str]) -> None
 
 def usage() -> None:
     print("Utilizzo:")
-    print("python ocel_filter.py auto <input> <output> <tipo1> [tipo2 ...]")
+    print("python ocel_filter.py auto <input> <output> [tipo1 tipo2 ...]")
     sys.exit(1)
 
 
@@ -879,7 +879,7 @@ def main() -> None:
         usage()
 
     mode = sys.argv[1].lower()
-    if mode != "auto" or len(sys.argv) < 5:
+    if mode != "auto" or len(sys.argv) < 4:
         usage()
 
     run_auto(sys.argv[2], sys.argv[3], sys.argv[4:])

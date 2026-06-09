@@ -935,6 +935,16 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
     if not quiet:
         sizes = [len(ex.events) + len(ex.objects) for ex in executions]
         print(f'[exec] {len(executions)} executions (size min={min(sizes, default=0)} mean={(mean(sizes) if sizes else 0):.1f} max={max(sizes, default=0)})')
+
+    if not executions:
+        raise RuntimeError(
+            f"[exec] No process executions found for leading type '{leading_type}'.\n"
+            f"  • Check that the leading type name matches exactly (case-sensitive).\n"
+            f"  • Make sure ocel_filter has been run on the log (it sanitises type "
+            f"names to lowercase).\n"
+            f"  • Object types in the log: {list(obj_types_map.keys())}"
+        )
+
     _t = time.time()
     status('[cfg-fn] building abstraction functions …')
     hierarchies, level_names, per_type_attrs = _build_attribute_hierarchies(ocel.objects, obj_types_map, exclude_attrs=exclude_attrs)
