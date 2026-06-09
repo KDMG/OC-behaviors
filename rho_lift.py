@@ -166,12 +166,12 @@ def _build_process_executions_from_ocpa(ocel, leading_type: str, sqlite_path: st
         pairs.sort(key=lambda p: p[1])
         o2trace_global[oid] = [p[0] for p in pairs]
     if verbose:
-        print(f'        log_df: {len(log_df)} events, obj-type cols: {obj_types}')
-        print(f'        indices: {len(act_map)} events, {len(o2trace_global)} objects tracked.')
+        print(f' log_df: {len(log_df)} events, obj-type cols: {obj_types}')
+        print(f' indices: {len(act_map)} events, {len(o2trace_global)} objects tracked.')
         if o2trace_global:
             sample_oids = list(o2trace_global.keys())[:3]
             for oid in sample_oids:
-                print(f'          sample obj {oid!r}: trace len = {len(o2trace_global[oid])}')
+                print(f' sample obj {oid!r}: trace len = {len(o2trace_global[oid])}')
     raw_pes = list(ocpa_ocel.process_executions)
     out: List[ProcessExecution] = []
     diag_edges = 0
@@ -205,7 +205,7 @@ def _build_process_executions_from_ocpa(ocel, leading_type: str, sqlite_path: st
         diag_events += len(E_X)
         diag_objects += len(X)
         if verbose and sample_printed < 3:
-            print(f'        sample exec[{sample_printed}]: |E|={len(E_X)}  |O|={len(X)}  |D|={len(D_X)}')
+            print(f' sample exec[{sample_printed}]: |E|={len(E_X)}  |O|={len(X)}  |D|={len(D_X)}')
             sample_printed += 1
     if verbose:
         n = max(1, len(out))
@@ -289,7 +289,7 @@ def _print_functional_dependencies(per_type_attrs: Dict[str, List[Tuple[str, Dic
                     print(f'       {a_name}  →  {b_name}')
                     found = True
         if not found:
-            print('       no non-trivial FDs')
+            print('no non-trivial FDs')
 
 def _drop_equivalent_atoms(per_type_attrs: Dict[str, List[Tuple[str, Dict[str, Any]]]], obj_types_map: Dict[str, str], verbose: bool=False) -> Dict[str, List[Tuple[str, Dict[str, Any]]]]:
     cleaned: Dict[str, List[Tuple[str, Dict[str, Any]]]] = {}
@@ -313,7 +313,7 @@ def _drop_equivalent_atoms(per_type_attrs: Dict[str, List[Tuple[str, Dict[str, A
                 if a_to_b and b_to_a:
                     dropped.add(j)
                     if verbose:
-                        print(f'[fd  ] drop equivalent atom for {tau}: {b_name} ≡ {a_name}; keeping {a_name}')
+                        print(f'[fd] drop equivalent atom for {tau}: {b_name} ≡ {a_name}; keeping {a_name}')
         cleaned[tau] = [atoms[i] for i in keep]
     return cleaned
 
@@ -725,8 +725,8 @@ def _mine_and_score(run: CfgRun, kpi_values: Dict[str, List[float]], primary_kpi
             sup_dist = f'min={sups[-1]}  q25={q(0.75)}  median={q(0.5)}  q75={q(0.25)}  max={sups[0]}'
         else:
             sup_dist = '(empty)'
-        print(f'        mined={len(all_patterns)} in_window={len(in_window)} (window=[{s_min_abs},{s_max_abs}], n_g={n_g})')
-        print(f'        support distribution: {sup_dist}')
+        print(f'mined={len(all_patterns)} in_window={len(in_window)} (window=[{s_min_abs},{s_max_abs}], n_g={n_g})')
+        print(f'support distribution: {sup_dist}')
     primary = kpi_values[primary_kpi]
     scored: List[LiftedPattern] = []
     bundled: List[BundlePattern] = []
@@ -759,7 +759,7 @@ def _mine_and_score(run: CfgRun, kpi_values: Dict[str, List[float]], primary_kpi
     if top_k_per_cfg > 0:
         scored = scored[:top_k_per_cfg]
     return (scored, bundled, mining_stats)
-_HTML_TEMPLATE = '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<title>ρ-Lift — top-{{ k }} KPI-discriminating patterns</title>\n<script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>\n<script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>\n<script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>\n<style>\n  :root {\n    --bg:#f7f7fb; --card:#fff; --ink:#1f2937;\n    --muted:#6b7280; --border:#e5e7eb;\n    --pos:#C13B3B; --neg:#2E7D32;\n  }\n  * { box-sizing:border-box; }\n  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;\n         background:var(--bg); color:var(--ink); }\n  header { padding:20px 28px; background:#fff; border-bottom:1px solid var(--border);\n           position:sticky; top:0; z-index:5; }\n  header h1 { margin:0 0 6px 0; font-size:18px; font-weight:600; }\n  header .meta { color:var(--muted); font-size:13px; }\n  header code { background:#f1f1f5; padding:1px 6px; border-radius:4px; }\n\n  main { padding:14px 28px 32px; display:flex; flex-direction:column; gap:18px; }\n  .pattern-card {\n    background:var(--card); border:1px solid var(--border);\n    border-radius:10px; padding:14px 18px; box-shadow:0 1px 3px rgba(0,0,0,.04);\n  }\n  .pattern-card h3 {\n    margin:0 0 6px 0; font-size:15px; font-weight:600;\n    display:flex; justify-content:space-between; align-items:baseline;\n  }\n  .rank { color:var(--muted); font-weight:500; font-size:12px; }\n  .phi  {\n    font-family:monospace; font-size:12px;\n    background:#f9fafb; border:1px solid var(--border); border-radius:6px;\n    padding:6px 8px; margin-bottom:8px; word-break:break-word;\n  }\n  .metrics {\n    display:flex; gap:18px; color:var(--muted); font-size:13px; margin-bottom:10px;\n    flex-wrap:wrap;\n  }\n  .metrics b { color:var(--ink); font-weight:600; }\n  .delta-up   { color:var(--pos); font-weight:700; }\n  .delta-down { color:var(--neg); font-weight:700; }\n  .cy { width:100%; height:320px; background:#fafbff;\n        border:1px dashed var(--border); border-radius:6px; }\n  .empty { color:var(--muted); font-style:italic; padding:24px; text-align:center;\n           border:1px dashed var(--border); border-radius:8px; background:var(--card); }\n</style>\n</head>\n<body>\n<header>\n  <h1>ρ-Lift — KPI-discriminating subgraph patterns</h1>\n  <div class="meta">\n    OCEL: <code>{{ ocel_path }}</code>\n    &nbsp;·&nbsp; leading type = <b>{{ leading_type }}</b>\n    &nbsp;·&nbsp; executions = <b>{{ n_executions }}</b>\n    &nbsp;·&nbsp; Φ evaluated = <b>{{ n_cfg_eval }}</b>\n    &nbsp;·&nbsp; Φ interesting = <b>{{ n_cfg_interesting }}</b>\n    &nbsp;·&nbsp; support window = <b>[{{ s_min }}, {{ s_max }}]</b>\n    &nbsp;·&nbsp; KPI = <b>{{ kpi_label }}</b>\n    &nbsp;·&nbsp; elapsed = <b>{{ elapsed_s }} s</b>\n  </div>\n</header>\n\n<main>\n  {% if patterns %}\n  {% for p in patterns %}\n  <div class="pattern-card">\n    <h3>\n      <span>Pattern {{ loop.index }}\n        <span class="rank"> — support {{ p.support }}/{{ p.n_graphs }}\n              ({{ (100*p.support/p.n_graphs)|round(1) }}%)</span>\n      </span>\n      <span class="{{ \'delta-up\' if p.signed_delta >= 0 else \'delta-down\' }}">\n        Δ = {{ p.delta_h }}\n        ({{ \'+\' if p.signed_delta >= 0 else \'−\' }}{{ p.signed_delta_h_abs }})\n      </span>\n    </h3>\n    <div class="phi">Φ = {{ p.phi_str }}</div>\n    <div class="metrics">\n      <span>μ<sub>in</sub> = <b>{{ p.mu_in_h }}</b></span>\n      <span>μ<sub>out</sub> = <b>{{ p.mu_out_h }}</b></span>\n      <span>|E<sub>in</sub>| = <b>{{ p.in_exec_idx|length }}</b></span>\n      <span>|E<sub>out</sub>| = <b>{{ p.out_exec_idx|length }}</b></span>\n      <span><b>{{ p.size_nodes }}</b> nodes</span>\n      <span><b>{{ p.size_edges }}</b> edges</span>\n    </div>\n    <div class="cy" id="cy-{{ loop.index0 }}"></div>\n  </div>\n  {% endfor %}\n  {% else %}\n  <div class="empty">No interesting patterns found with the current parameters.</div>\n  {% endif %}\n</main>\n\n<script>\n  const PATTERNS = {{ patterns_json | safe }};\n  const baseStyle = [\n    { selector:"node", style:{\n      "background-color":"#4E79A7","label":"data(label)","color":"#fff",\n      "font-size":"11px","font-family":"monospace","text-wrap":"wrap",\n      "text-max-width":"170px","text-valign":"center","text-halign":"center",\n      "width":"170px","height":"58px","shape":"roundrectangle",\n    }},\n    { selector:"edge", style:{\n      "curve-style":"bezier","control-point-step-size":40,\n      "target-arrow-shape":"triangle","target-arrow-color":"#6b7280",\n      "line-color":"#6b7280","width":2,"label":"data(label)","font-size":"10px",\n      "font-family":"monospace","color":"#374151",\n      "text-background-color":"#fff","text-background-opacity":0.9,\n      "text-background-padding":"3px","text-rotation":"autorotate",\n    }},\n  ];\n  PATTERNS.forEach((elems, i) => {\n    const ss = baseStyle.map(s => ({...s, style: {...s.style}}));\n    ss[0].style["background-color"] = elems.accent;\n    const el = document.getElementById(`cy-${i}`);\n    if (!el) return;\n    cytoscape({\n      container: el, elements: elems.elements, style: ss,\n      layout:{ name:"dagre", rankDir:"LR", nodeSep:28, rankSep:60 },\n      userZoomingEnabled:true, userPanningEnabled:true,\n      boxSelectionEnabled:false,\n    });\n  });\n</script>\n</body>\n</html>\n'
+_HTML_TEMPLATE = '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<title>KPI — top-{{ k }} KPI-discriminating patterns</title>\n<script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>\n<script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>\n<script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>\n<style>\n  :root {\n    --bg:#f7f7fb; --card:#fff; --ink:#1f2937;\n    --muted:#6b7280; --border:#e5e7eb;\n    --pos:#C13B3B; --neg:#2E7D32;\n  }\n  * { box-sizing:border-box; }\n  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;\n         background:var(--bg); color:var(--ink); }\n  header { padding:20px 28px; background:#fff; border-bottom:1px solid var(--border);\n           position:sticky; top:0; z-index:5; }\n  header h1 { margin:0 0 6px 0; font-size:18px; font-weight:600; }\n  header .meta { color:var(--muted); font-size:13px; }\n  header code { background:#f1f1f5; padding:1px 6px; border-radius:4px; }\n\n  main { padding:14px 28px 32px; display:flex; flex-direction:column; gap:18px; }\n  .pattern-card {\n    background:var(--card); border:1px solid var(--border);\n    border-radius:10px; padding:14px 18px; box-shadow:0 1px 3px rgba(0,0,0,.04);\n  }\n  .pattern-card h3 {\n    margin:0 0 6px 0; font-size:15px; font-weight:600;\n    display:flex; justify-content:space-between; align-items:baseline;\n  }\n  .rank { color:var(--muted); font-weight:500; font-size:12px; }\n  .phi  {\n    font-family:monospace; font-size:12px;\n    background:#f9fafb; border:1px solid var(--border); border-radius:6px;\n    padding:6px 8px; margin-bottom:8px; word-break:break-word;\n  }\n  .metrics {\n    display:flex; gap:18px; color:var(--muted); font-size:13px; margin-bottom:10px;\n    flex-wrap:wrap;\n  }\n  .metrics b { color:var(--ink); font-weight:600; }\n  .delta-up   { color:var(--pos); font-weight:700; }\n  .delta-down { color:var(--neg); font-weight:700; }\n  .cy { width:100%; height:320px; background:#fafbff;\n        border:1px dashed var(--border); border-radius:6px; }\n  .empty { color:var(--muted); font-style:italic; padding:24px; text-align:center;\n           border:1px dashed var(--border); border-radius:8px; background:var(--card); }\n</style>\n</head>\n<body>\n<header>\n  <h1>KPI — KPI-discriminating subgraph patterns</h1>\n  <div class="meta">\n    OCEL: <code>{{ ocel_path }}</code>\n    &nbsp;·&nbsp; leading type = <b>{{ leading_type }}</b>\n    &nbsp;·&nbsp; executions = <b>{{ n_executions }}</b>\n    &nbsp;·&nbsp; Φ evaluated = <b>{{ n_cfg_eval }}</b>\n    &nbsp;·&nbsp; Φ interesting = <b>{{ n_cfg_interesting }}</b>\n    &nbsp;·&nbsp; support window = <b>[{{ s_min }}, {{ s_max }}]</b>\n    &nbsp;·&nbsp; KPI = <b>{{ kpi_label }}</b>\n    &nbsp;·&nbsp; elapsed = <b>{{ elapsed_s }} s</b>\n  </div>\n</header>\n\n<main>\n  {% if patterns %}\n  {% for p in patterns %}\n  <div class="pattern-card">\n    <h3>\n      <span>Pattern {{ loop.index }}\n        <span class="rank"> — support {{ p.support }}/{{ p.n_graphs }}\n              ({{ (100*p.support/p.n_graphs)|round(1) }}%)</span>\n      </span>\n      <span class="{{ \'delta-up\' if p.signed_delta >= 0 else \'delta-down\' }}">\n        KPI = {{ p.delta_h }}\n        ({{ \'+\' if p.signed_delta >= 0 else \'−\' }}{{ p.signed_delta_h_abs }})\n      </span>\n    </h3>\n    <div class="phi">Φ = {{ p.phi_str }}</div>\n    <div class="metrics">\n      <span>μ<sub>in</sub> = <b>{{ p.mu_in_h }}</b></span>\n      <span>μ<sub>out</sub> = <b>{{ p.mu_out_h }}</b></span>\n      <span>|E<sub>in</sub>| = <b>{{ p.in_exec_idx|length }}</b></span>\n      <span>|E<sub>out</sub>| = <b>{{ p.out_exec_idx|length }}</b></span>\n      <span><b>{{ p.size_nodes }}</b> nodes</span>\n      <span><b>{{ p.size_edges }}</b> edges</span>\n    </div>\n    <div class="cy" id="cy-{{ loop.index0 }}"></div>\n  </div>\n  {% endfor %}\n  {% else %}\n  <div class="empty">No interesting patterns found with the current parameters.</div>\n  {% endif %}\n</main>\n\n<script>\n  const PATTERNS = {{ patterns_json | safe }};\n  const baseStyle = [\n    { selector:"node", style:{\n      "background-color":"#4E79A7","label":"data(label)","color":"#fff",\n      "font-size":"11px","font-family":"monospace","text-wrap":"wrap",\n      "text-max-width":"170px","text-valign":"center","text-halign":"center",\n      "width":"170px","height":"58px","shape":"roundrectangle",\n    }},\n    { selector:"edge", style:{\n      "curve-style":"bezier","control-point-step-size":40,\n      "target-arrow-shape":"triangle","target-arrow-color":"#6b7280",\n      "line-color":"#6b7280","width":2,"label":"data(label)","font-size":"10px",\n      "font-family":"monospace","color":"#374151",\n      "text-background-color":"#fff","text-background-opacity":0.9,\n      "text-background-padding":"3px","text-rotation":"autorotate",\n    }},\n  ];\n  PATTERNS.forEach((elems, i) => {\n    const ss = baseStyle.map(s => ({...s, style: {...s.style}}));\n    ss[0].style["background-color"] = elems.accent;\n    const el = document.getElementById(`cy-${i}`);\n    if (!el) return;\n    cytoscape({\n      container: el, elements: elems.elements, style: ss,\n      layout:{ name:"dagre", rankDir:"LR", nodeSep:28, rankSep:60 },\n      userZoomingEnabled:true, userPanningEnabled:true,\n      boxSelectionEnabled:false,\n    });\n  });\n</script>\n</body>\n</html>\n'
 
 def _fmt_cfg(cfg: Tuple[int, ...], types: List[str], level_names: Dict[str, List[str]]) -> str:
     parts = []
@@ -767,7 +767,7 @@ def _fmt_cfg(cfg: Tuple[int, ...], types: List[str], level_names: Dict[str, List
         names = level_names.get(tau, [])
         lv = cfg[i]
         lbl = names[lv] if 0 <= lv < len(names) else str(lv)
-        parts.append(f'{tau}: ρ = {lbl}')
+        parts.append(f'{tau}: cfg = {lbl}')
     return '  │  '.join(parts)
 
 def _fmt_duration_seconds(s: float) -> str:
@@ -936,7 +936,7 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
         sizes = [len(ex.events) + len(ex.objects) for ex in executions]
         print(f'[exec] {len(executions)} executions (size min={min(sizes, default=0)} mean={(mean(sizes) if sizes else 0):.1f} max={max(sizes, default=0)})')
     _t = time.time()
-    status('[ρ-fn] building abstraction functions …')
+    status('[cfg-fn] building abstraction functions …')
     hierarchies, level_names, per_type_attrs = _build_attribute_hierarchies(ocel.objects, obj_types_map, exclude_attrs=exclude_attrs)
     timings['rho_hierarchy_building'] = time.time() - _t
     executions, bottom_iso_groups = _deduplicate_executions_by_bottom_iso(executions=executions, types=types, hierarchies=hierarchies, obj_types_map=obj_types_map, verbose=not quiet)
@@ -955,10 +955,10 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
     if not quiet:
         _print_functional_dependencies(per_type_attrs, obj_types_map)
     if not quiet:
-        print('[ρ-fn] function space per object type:')
+        print('[cfg-fn] function space per object type:')
         for tau in types:
             names = level_names[tau]
-            rs = [f'identity' if n == 'id' else 'map→type' if n == 'type' else f'ρ_{n}' for n in names]
+            rs = [f'identity' if n == 'id' else 'map→type' if n == 'type' else f'cfg_{n}' for n in names]
             print(f'        {tau:>10s}  :  ' + '  |  '.join(rs))
     s_abs_min = int(round(s_min * len(executions))) if not support_abs else int(s_min)
     s_abs_max = int(round(s_max * len(executions))) if not support_abs else int(s_max)
@@ -1019,7 +1019,7 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
         total_mining_time += time.time() - t_mine
         mining_stats_by_cfg[r.cfg] = mining_stats
         if not quiet:
-            print(f'        → {len(scored)} lifted patterns kept from this Φ  (top-{top_k_per_cfg} by |Δ|)')
+            print(f'        → {len(scored)} lifted patterns kept from this cfg  (top-{top_k_per_cfg} by KPI)')
         all_scored.extend(scored)
         if want_bundle:
             bundle_by_cfg[r.cfg] = bundled
@@ -1082,14 +1082,14 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
         else:
             mb = lattice_metrics[bottom_cfg]
             print('[latt] reduction/compression measured from bottom Φ')
-            print(f'        bottom Φ = {_fmt_cfg(bottom_cfg, types, level_names)}')
-            print(f'        bottom K = {mb.K}, bottom s = {mb.s:.2f}')
+            print(f'bottom cfg = {_fmt_cfg(bottom_cfg, types, level_names)}')
+            print(f'bottom abs = {mb.K}, bottom s = {mb.s:.2f}')
             print('[latt] per-configuration reduction/compression from bottom:')
             for run in all_runs:
                 m_cfg = lattice_metrics[run.cfg]
                 red_cfg = behavior_reduction(lattice_metrics, bottom_cfg, run.cfg)
                 comp_cfg = behavior_compression(lattice_metrics, bottom_cfg, run.cfg)
-                print(f'        Φ = {_fmt_cfg(run.cfg, types, level_names)}  K={run.K}/{run.n_executions}, s={m_cfg.s:.2f}, reduction_from_bottom={red_cfg:+.4f} {_pct(red_cfg)}, behavior_compression={comp_cfg:+.4f} {_pct(comp_cfg)}, support=[{m_cfg.sup_min}, {m_cfg.sup_mean:.2f}, {m_cfg.sup_max}], interesting={run.is_interesting}')
+                print(f'cfg = {_fmt_cfg(run.cfg, types, level_names)}  K={run.K}/{run.n_executions}, s={m_cfg.s:.2f}, reduction_from_bottom={red_cfg:+.4f} {_pct(red_cfg)}, behavior_compression={comp_cfg:+.4f} {_pct(comp_cfg)}, support=[{m_cfg.sup_min}, {m_cfg.sup_mean:.2f}, {m_cfg.sup_max}], interesting={run.is_interesting}')
     status(f'[mine] finalising deferred mining ({len(runs)} streaming + bottom Φ at end) …')
     for run in mine_runs:
         if run.cfg in mining_stats_by_cfg:
@@ -1147,26 +1147,26 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
     cfg_csv = str(p.with_name(p.stem + '_configs.csv'))
     save_cfg_metrics_csv(cfg_csv, runs=all_runs, types=types, level_names=level_names, lattice_metrics=lattice_metrics, bottom_cfg=bottom_cfg)
     if not quiet:
-        print(f'[csv ] configuration metrics written to {cfg_csv}')
+        print(f'[csv] configuration metrics written to {cfg_csv}')
     status(f'[done] elapsed {elapsed:.1f}s — {len(top)}/{len(all_scored)} patterns kept')
     return (top, stats)
 
 def _print_top(top: List[LiftedPattern], types: List[str], level_names: Dict[str, List[str]]) -> None:
     bar = '─' * 78
     print(bar)
-    print(f'  TOP {len(top)} ρ-Lift patterns  (ranked by |Δ| = |μ_in − μ_out|)')
+    print(f'TOP {len(top)} KPI patterns')
     print(bar)
     for i, p in enumerate(top, 1):
         sign = '+' if p.signed_delta >= 0 else '−'
-        print(f'  {i:2d}. |Δ| = {_fmt_duration_seconds(p.delta):>10s}  (signed {sign}{_fmt_duration_seconds(abs(p.signed_delta))})')
+        print(f'  {i:2d}. KPI = {_fmt_duration_seconds(p.delta):>10s}  (signed {sign}{_fmt_duration_seconds(abs(p.signed_delta))})')
         print(f'      support = {p.support}/{p.n_graphs}  |E_in|={len(p.in_exec_idx)}  |E_out|={len(p.out_exec_idx)}')
-        print(f'      μ_in  = {_fmt_duration_seconds(p.mu_in)}     μ_out = {_fmt_duration_seconds(p.mu_out)}')
+        print(f'      min  = {_fmt_duration_seconds(p.mu_in)}     max = {_fmt_duration_seconds(p.mu_out)}')
         print(f'      size  = {p.size_nodes} nodes, {p.size_edges} edges')
-        print(f'      Φ     : {_fmt_cfg(p.cfg, types, level_names)}')
+        print(f'      cfg : {_fmt_cfg(p.cfg, types, level_names)}')
     print(bar)
 
 def main(argv: Optional[List[str]]=None) -> int:
-    ap = argparse.ArgumentParser(description='ρ-configured SUBDUE mining with KPI-lift scoring. Input: OCEL-2.0 SQLite only.')
+    ap = argparse.ArgumentParser(description='configured SUBDUE mining with KPI-lift scoring. Input: OCEL-2.0 SQLite only.')
     ap.add_argument('ocel', help='Path to an .sqlite OCEL-2.0 log.')
     ap.add_argument('--leading', required=True, help='Object type used as leading object for execution extraction (delegated to ocpa).')
     ap.add_argument('--s-min', type=float, default=0.02, help='Minimum pattern support (default: 0.02, fraction).')
@@ -1178,10 +1178,10 @@ def main(argv: Optional[List[str]]=None) -> int:
     ap.add_argument('--beam', type=int, default=12, help='Beam width for SUBDUE expansion.')
     ap.add_argument('--min-support', type=int, default=2, help="Miner's internal minimum support (integer).")
     ap.add_argument('--miner', choices=['subdue', 'gspan'], default='subdue', help="Subgraph miner to use.  'subdue' is the beam-search built-in; 'gspan' delegates to the gspan-mining PyPI package via a gadget encoding that preserves label-set subset matching (pip install gspan-mining required).  Default: subdue.")
-    ap.add_argument('--exclude-attrs', default='', help='Comma-separated attribute names to exclude from the ρ-space.')
+    ap.add_argument('--exclude-attrs', default='', help='Comma-separated attribute names to exclude from the configuration space.')
     ap.add_argument('--out', default=None, help='Output HTML path. Default: rho_lift_report.html inside the input OCEL directory. Pass empty string to skip.')
     ap.add_argument('--bundle', default=None, help='If set, save the full run (all Φ, all patterns, all KPIs) to this .pkl file for the interactive explorer (rho_explorer.py).')
-    ap.add_argument('--kpi', action='append', default=None, help="KPI(s) to compute. Can be passed multiple times. Built-ins: duration, n_events, n_objects, n_activities, event_density. Custom: 'name:=EXPR' or just 'EXPR'. The first --kpi is the PRIMARY KPI used for |Δ| ranking (default: duration).")
+    ap.add_argument('--kpi', action='append', default=None, help="KPI(s) to compute. Can be passed multiple times. Built-ins: duration, n_events, n_objects, n_activities, event_density. Custom: 'name:=EXPR' or just 'EXPR'. The first --kpi is the PRIMARY KPI used for KPI ranking (default: duration).")
     ap.add_argument('--quiet', action='store_true', help='Silence progress logs.')
     args = ap.parse_args(argv)
     excl = [a.strip() for a in args.exclude_attrs.split(',') if a.strip()]
