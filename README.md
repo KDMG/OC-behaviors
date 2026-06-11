@@ -26,8 +26,8 @@ Run the full pipeline on any [dataset](https://github.com/KDMG/OC-behaviors/tree
 
 ```bash
 python pipeline.py datasets/order_management/order-management.sqlite \
-    --leading order \
-    --bundle  datasets/order_management/mined_behaviors.pkl \
+    --leading order
+    --bundle datasets/order_management/mined_behaviors.pkl \
     --explore
 ```
 
