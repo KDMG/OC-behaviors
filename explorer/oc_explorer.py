@@ -553,7 +553,7 @@ def create_app(state: ExplorerState) -> Flask:
                     pattern_row = {
                         "cfg_idx": ci,
                         "behavior_idx": pi,
-                        "pattern_name": f"p{pi}",
+                        "behavior_name": f"b{pi}",
 
                         "size_nodes": p.size_nodes,
                         "size_edges": p.size_edges,
