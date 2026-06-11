@@ -31,11 +31,7 @@ python pipeline.py datasets/order_management/order-management.sqlite \
     --explore
 ```
 
-This will:
-1. Run MLPA to detect resource types automatically;
-2. Filter the log (removing types with no process activities);
-3. Mine behaviors with gspan;
-4. Open the interactive explorer at `http://127.0.0.1:8050/`.
+This will run MLPA to detect resource types, filter the log, mine behaviors with gspan, and open the interactive explorer at `http://127.0.0.1:8050/`.
 
 To open the explorer on an already-mined bundle:
 
@@ -45,50 +41,32 @@ python pipeline.py --explore-only datasets/order_management/mined_behaviors.pkl
 
 ## Pipeline Parameters
 
-### Positional
+**Positional:** `ocel` — input OCEL path (`.sqlite`). Not required with `--explore-only`.
 
-| Argument | Description |
-|----------|-------------|
-| `ocel` | Input OCEL path (`.sqlite`). Not required with `--explore-only`. |
+**MLPA**
+- `--tau` (default: `0.9`) — mlpaDiscovery tau threshold.
+- `--remove-types TYPE [TYPE ...]` — object types to remove; auto-detected from MLPA if omitted.
+- `--skip-mlpa` — skip the MLPA step (requires `--remove-types` or `--skip-filter`).
 
-### General
+**Filter**
+- `--filtered PATH` — output path for the filtered OCEL (default: `<input>_filtered.sqlite`).
+- `--skip-filter` — skip filtering and mine the raw input directly.
 
-| Argument | Default | Description |
-|----------|---------|-------------|
-| `--explore-only BUNDLE` | — | Skip everything and open the explorer on an existing `.pkl` bundle. |
+**Mining**
+- `--bundle PATH` — output `.pkl` bundle for the explorer.
+- `--leading TYPE` — leading object type for execution extraction (required).
+- `--miner` (default: `gspan`) — subgraph miner; choices: `gspan`, `subdue`.
+- `--kpi KPI` (default: `duration`, `n_events`) — KPI(s) to compute, repeatable.
+- `--s-min` (default: `5%` of executions) — minimum behavior support.
+- `--s-max` (default: `80%` of executions) — maximum behavior support.
+- `--support-abs` — interpret `--s-min`/`--s-max` as absolute counts.
+- `--quiet` — silence mining progress logs.
 
-### MLPA
+**Explorer**
+- `--explore` — launch the explorer automatically after mining.
+- `--host` (default: `127.0.0.1`) — explorer server host.
+- `--port` (default: `8050`) — explorer server port.
 
-| Argument | Default | Description |
-|----------|---------|-------------|
-| `--tau` | `0.9` | mlpaDiscovery tau threshold. |
-| `--remove-types TYPE [TYPE ...]` | auto-detected | Object types to remove. If omitted, inferred from MLPA output. |
-| `--skip-mlpa` | `False` | Skip the MLPA step entirely (requires `--remove-types` or `--skip-filter`). |
+## Contact
 
-### Filter
-
-| Argument | Default | Description |
-|----------|---------|-------------|
-| `--filtered PATH` | `<input>_filtered.sqlite` | Output path for the filtered OCEL. |
-| `--skip-filter` | `False` | Skip the filter step and mine the raw input OCEL directly. |
-
-### Mining
-
-| Argument | Default | Description |
-|----------|---------|-------------|
-| `--bundle PATH` | — | Output `.pkl` bundle for the interactive explorer. |
-| `--leading TYPE` | — | Leading object type for execution extraction (required for mining). |
-| `--miner` | `gspan` | Subgraph miner to use. Choices: `gspan`, `subdue`. |
-| `--kpi KPI` | `duration`, `n_events` | KPI(s) to compute. Repeatable (e.g. `--kpi duration --kpi n_events`). |
-| `--s-min` | `5%` of executions | Minimum behavior support. |
-| `--s-max` | `80%` of executions | Maximum behavior support. |
-| `--support-abs` | `False` | Interpret `--s-min`/`--s-max` as absolute counts instead of fractions. |
-| `--quiet` | `False` | Silence mining progress logs. |
-
-### Explorer
-
-| Argument | Default | Description |
-|----------|---------|-------------|
-| `--explore` | `False` | Launch the interactive explorer automatically after mining. |
-| `--host` | `127.0.0.1` | Host for the explorer server. |
-| `--port` | `8050` | Port for the explorer server. |
+Chiara Gobbi — [c.gobbi@pm.univpm.it](mailto:c.gobbi@pm.univpm.it)
