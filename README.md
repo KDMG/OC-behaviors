@@ -4,7 +4,7 @@
 
 ## Requirements
 
-- [Python 3.9](https://www.python.org/downloads/release/python-396/)
+- [Python 3.9](https://www.python.org/downloads/release/python-396/) (the program was tested in Python 3.9.23)
 - [Graphviz](https://graphviz.org/download/)
 
 ## Installation
@@ -44,7 +44,7 @@ python pipeline.py --explore-only datasets/order_management/mined_behaviors.pkl
 **Positional:** `ocel` — input OCEL path (`.sqlite`). Not required with `--explore-only`.
 
 **MLPA**
-- `--tau` (default: `0.9`) — mlpaDiscovery tau threshold.
+- `--tau` (default: `0.9`) - mlpaDiscovery tau threshold.
 - `--remove-types TYPE [TYPE ...]` — object types to remove; auto-detected from MLPA if omitted.
 - `--skip-mlpa` — skip the MLPA step (requires `--remove-types` or `--skip-filter`).
 
@@ -55,12 +55,12 @@ python pipeline.py --explore-only datasets/order_management/mined_behaviors.pkl
 **Mining**
 - `--bundle PATH` — output `.pkl` bundle for the explorer.
 - `--leading TYPE` — leading object type for execution extraction (required).
-- `--miner` (default: `gspan`) — subgraph miner; choices: `gspan`, `subdue`.
-- `--kpi KPI` (default: `duration`, `n_events`) — KPI(s) to compute, repeatable.
-- `--s-min` (default: `5%` of executions) — minimum behavior support.
-- `--s-max` (default: `80%` of executions) — maximum behavior support.
+- `--miner` (default: `gspan`) — subgraph miner; choices: `gspan`.
+- `--kpi KPI` (default: `duration`, `n_events`) — KPI(s) to compute.
+- `--s-min` (default: `5%` of process executions) — minimum behavior support.
+- `--s-max` (default: `80%` of process executions) — maximum behavior support.
 - `--support-abs` — interpret `--s-min`/`--s-max` as absolute counts.
-- `--quiet` — silence mining progress logs.
+- `--quiet` — silence mining logs.
 
 **Explorer**
 - `--explore` — launch the explorer automatically after mining.
