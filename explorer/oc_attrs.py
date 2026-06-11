@@ -145,11 +145,11 @@ def _split_by_kpi_median(
 def attribute_breakdown(
     state,
     cfg_idx: int,
-    pattern_idx: int,
+    behavior_idx: int,
     kpi: Optional[str] = None,
 ) -> Dict[str, Any]:
     bundle = state.bundle
-    pattern = bundle.cfg_runs[cfg_idx].patterns[pattern_idx]
+    pattern = bundle.cfg_runs[cfg_idx].patterns[behavior_idx]
 
     if kpi is None or kpi not in bundle.kpi_values:
         kpi = bundle.primary_kpi
@@ -219,7 +219,7 @@ def attribute_breakdown(
 
     return {
         "cfg_idx": cfg_idx,
-        "pattern_idx": pattern_idx,
+        "behavior_idx": behavior_idx,
         "kpi": kpi,
         "n_executions_total": n_executions,
         "n_in": len(in_indexes),

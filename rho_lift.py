@@ -2,7 +2,6 @@
 from __future__ import annotations
 import argparse
 import csv
-import concurrent.futures
 import datetime as _dt
 import html
 import itertools
@@ -544,6 +543,14 @@ def save_bundle(bundle: RunBundle, path: str) -> None:
         pickle.dump(bundle, f, protocol=pickle.HIGHEST_PROTOCOL)
 
 def load_bundle(path: str) -> RunBundle:
+    # compatibility shim: bundles saved before package reorganisation reference
+    # 'core', 'kpi', 'mining_gspan' at the root; redirect to their new homes.
+    import mining.core as _mc
+    import mining.kpi as _mk
+    import mining.mining_gspan as _mg
+    for _old, _new in [('core', _mc), ('kpi', _mk), ('mining_gspan', _mg)]:
+        if _old not in sys.modules:
+            sys.modules[_old] = _new
     with open(path, 'rb') as f:
         return pickle.load(f)
 
@@ -922,7 +929,7 @@ def _mine_worker(payload: tuple) -> tuple:
     return run.cfg, scored, bundled, stats
 
 
-def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max: float=0.8, support_abs: bool=False, top_k: int=10, max_edges: int=4, beam_width: int=12, min_support: int=2, top_k_per_cfg: int=10, exclude_attrs: Sequence[str]=(), out_html: Optional[str]=None, quiet: bool=False, kpis: Optional[List[KPI]]=None, bundle_path: Optional[str]=None, miner: str='subdue', n_workers: int=1) -> Tuple[List[LiftedPattern], RunStats]:
+def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max: float=0.8, support_abs: bool=False, top_k: int=10, max_edges: int=4, beam_width: int=12, min_support: int=2, top_k_per_cfg: int=10, exclude_attrs: Sequence[str]=(), out_html: Optional[str]=None, quiet: bool=False, kpis: Optional[List[KPI]]=None, bundle_path: Optional[str]=None, miner: str='subdue') -> Tuple[List[LiftedPattern], RunStats]:
     t0 = time.time()
     timings: Dict[str, float] = {}
 
@@ -1051,14 +1058,12 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
         r.behaviors = []
         r.iso_ids = []
     _stash_lattice_metrics(run_bottom)
-    executor = concurrent.futures.ProcessPoolExecutor(max_workers=n_workers) if n_workers > 1 else None
-    _pending: Dict[concurrent.futures.Future, CfgRun] = {}
     status('[cfg ] computing behaviors and isomorphism classes …')
     for j, cfg in enumerate(all_cfgs):
         if cfg != bottom_cfg and any((_cfg_leq(cfg, p, types, hierarchies) for p in pruned_cfgs)):
             n_skipped += 1
             if not quiet:
-                print(f'[skip] sotto configurazione potata: {cfg}')
+                print(f'[skip] pruned sub-configuration: {cfg}')
             continue
         if cfg == bottom_cfg:
             run = run_bottom
@@ -1092,12 +1097,7 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
         if ok:
             runs.append(run)
             if cfg != bottom_cfg:
-                if n_workers == 1:
-                    _stream_mine(run)
-                else:
-                    _payload = (run, kpi_values, primary_kpi_name, s_abs_min, s_abs_max,
-                                max_edges, beam_width, min_support, top_k_per_cfg, want_bundle, miner)
-                    _pending[executor.submit(_mine_worker, _payload)] = run
+                _stream_mine(run)
         else:
             n_skipped += 1
             if cfg != bottom_cfg:
@@ -1130,42 +1130,11 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
                 red_cfg = behavior_reduction(lattice_metrics, bottom_cfg, run.cfg)
                 comp_cfg = behavior_compression(lattice_metrics, bottom_cfg, run.cfg)
                 print(f'{_fmt_cfg(run.cfg, types, level_names)}  K={run.K}/{run.n_executions}, s={m_cfg.s:.2f}, reduction={_pct(red_cfg)}, compression={_pct(comp_cfg)}, support=[{m_cfg.sup_min}, {m_cfg.sup_mean:.2f}, {m_cfg.sup_max}], interesting={run.is_interesting}')
-    t_mine_start = time.time()
-    if n_workers == 1:
-        # sequential: mine bottom_cfg if not yet done (was already streamed inline above)
-        for run in mine_runs:
-            if run.cfg not in mining_stats_by_cfg:
-                _stream_mine(run)
-    else:
-        # parallel: submit bottom_cfg and any other not-yet-submitted runs
-        already = {r.cfg for r in _pending.values()}
-        for run in mine_runs:
-            if run.cfg not in already and run.cfg not in mining_stats_by_cfg:
-                _payload = (run, kpi_values, primary_kpi_name, s_abs_min, s_abs_max,
-                            max_edges, beam_width, min_support, top_k_per_cfg, want_bundle, miner)
-                _pending[executor.submit(_mine_worker, _payload)] = run
-        n_total = len(_pending)
-        done = 0
-        for fut in concurrent.futures.as_completed(_pending):
-            run = _pending[fut]
-            done += 1
-            cfg_key, scored, bundled, mining_stats = fut.result()
-            m_cfg = lattice_metrics[cfg_key]
-            red_cfg = behavior_reduction(lattice_metrics, bottom_cfg, cfg_key)
-            comp_cfg = behavior_compression(lattice_metrics, bottom_cfg, cfg_key)
-            all_scored.extend(scored)
-            mining_stats_by_cfg[cfg_key] = mining_stats
-            if want_bundle:
-                bundle_by_cfg[cfg_key] = bundled
-            run.behaviors = []
-            run.iso_ids = []
-            status(f'[mine] {done}/{n_total} done')
-            if not quiet:
-                print(f'[mine] {done}/{n_total}  {_fmt_cfg(cfg_key, types, level_names)}'
-                      f'  → {len(scored)} behaviors  (K={run.K}, s={m_cfg.s:.1f},'
-                      f' reduction={_pct(red_cfg)}, compression={_pct(comp_cfg)})')
-        executor.shutdown(wait=False)
-    timings['subgraph_mining_and_kpi_scoring'] = time.time() - t_mine_start
+    status(f'[mine] finalising deferred mining …')
+    for run in mine_runs:
+        if run.cfg not in mining_stats_by_cfg:
+            _stream_mine(run)
+    timings['subgraph_mining_and_kpi_scoring'] = total_mining_time
     all_scored.sort(key=lambda p: -p.delta)
     top = all_scored[:top_k]
     dataset_name = Path(ocel_path).stem
@@ -1203,10 +1172,21 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
     if bundle_path:
         if not quiet:
             print(f'[bund] packaging full run → {bundle_path}')
+        # Apply subsumption and renumber patterns sequentially so that
+        # behavior indices in the .pkl match what the explorer displays.
+        try:
+            from explorer.oc_subsume import compute_kept_patterns as _ckp
+        except Exception:
+            _ckp = None
+
         bundle_runs: List[BundleCfgRun] = []
         n_patterns_total = 0
         for run in all_runs:
             pats = bundle_by_cfg.get(run.cfg, [])
+            if _ckp is not None and len(pats) > 1:
+                kept_set = _ckp(pats)
+                if kept_set is not None:
+                    pats = [pats[i] for i in sorted(kept_set)]
             n_patterns_total += len(pats)
             m_cfg = lattice_metrics[run.cfg]
             bundle_runs.append(BundleCfgRun(cfg=run.cfg, K=run.K, n_executions=run.n_executions, is_interesting=run.is_interesting, reason_skipped=run.reason_skipped, iso_ids=list(run.iso_ids), reduction=behavior_reduction(lattice_metrics, bottom_cfg, run.cfg), compression=behavior_compression(lattice_metrics, bottom_cfg, run.cfg), avg_abstraction_size=m_cfg.s, patterns=pats))
@@ -1252,7 +1232,6 @@ def main(argv: Optional[List[str]]=None) -> int:
     ap.add_argument('--out', default=None, help='Output HTML path. Default: rho_lift_report.html inside the input OCEL directory. Pass empty string to skip.')
     ap.add_argument('--bundle', default=None, help='If set, save the full run (all Φ, all patterns, all KPIs) to this .pkl file for the interactive explorer (rho_explorer.py).')
     ap.add_argument('--kpi', action='append', default=None, help="KPI(s) to compute. Can be passed multiple times. Built-ins: duration, n_events, n_objects, n_activities, event_density. Custom: 'name:=EXPR' or just 'EXPR'. The first --kpi is the PRIMARY KPI used for KPI ranking (default: duration).")
-    ap.add_argument('--workers', type=int, default=1, help='Number of parallel workers for subgraph mining. Default: 1 (sequential). Set to -1 to use all CPU cores.')
     ap.add_argument('--quiet', action='store_true', help='Silence progress logs.')
     args = ap.parse_args(argv)
     excl = [a.strip() for a in args.exclude_attrs.split(',') if a.strip()]
@@ -1263,8 +1242,7 @@ def main(argv: Optional[List[str]]=None) -> int:
         out_h = args.out
     else:
         out_h = None
-    n_w = os.cpu_count() if args.workers == -1 else args.workers
-    top, stats = run_pipeline(ocel_path=args.ocel, leading_type=args.leading, s_min=args.s_min, s_max=args.s_max, support_abs=args.support_abs, top_k=args.top_k, max_edges=args.max_edges, beam_width=args.beam, min_support=args.min_support, top_k_per_cfg=args.top_k_per_cfg, exclude_attrs=excl, out_html=out_h, quiet=args.quiet, kpis=kpis, bundle_path=args.bundle, miner=args.miner, n_workers=n_w)
+    top, stats = run_pipeline(ocel_path=args.ocel, leading_type=args.leading, s_min=args.s_min, s_max=args.s_max, support_abs=args.support_abs, top_k=args.top_k, max_edges=args.max_edges, beam_width=args.beam, min_support=args.min_support, top_k_per_cfg=args.top_k_per_cfg, exclude_attrs=excl, out_html=out_h, quiet=args.quiet, kpis=kpis, bundle_path=args.bundle, miner=args.miner)
     ocel = _load_ocel_sqlite_pm4py(args.ocel)
     obj_types_map = dict(zip(ocel.objects[OBJ_ID], ocel.objects['ocel:type']))
     types = sorted(set(obj_types_map.values()))

@@ -91,13 +91,13 @@ def _infer_direct_mapping_from_o2o(
     if missing:
         raise ValueError(
             f"Impossibile ricavare il mapping {source_type} -> {target_type} "
-            f"per {len(missing)} oggetti. Esempi: {missing[:10]}"
+            f"for {len(missing)} objects. Examples: {missing[:10]}"
         )
 
     if ambiguous:
         ex = list(ambiguous.items())[:5]
         raise ValueError(
-            f"Il mapping {source_type} -> {target_type} non è univoco. "
+            f"The mapping {source_type} -> {target_type} is not unique. "
             f"Esempi: {ex}"
         )
 
@@ -116,11 +116,11 @@ def _build_all_direct_mappings_from_sqlite(
 
     for src, tgts in type_links.items():
         if src not in object_ids_by_type:
-            raise ValueError(f"Tipo '{src}' non trovato negli oggetti del log.")
+            raise ValueError(f"Type '{src}' not found in log objects.")
 
         for tgt in tgts:
             if tgt not in object_ids_by_type:
-                raise ValueError(f"Tipo '{tgt}' non trovato negli oggetti del log.")
+                raise ValueError(f"Type '{tgt}' not found in log objects.")
 
             direct[(src, tgt)] = _infer_direct_mapping_from_o2o(
                 neighbors=neighbors,
@@ -138,7 +138,7 @@ def _pick_col(df: pd.DataFrame, candidates: list[str], required: bool = True) ->
             return c
     if required:
         raise ValueError(
-            f"Nessuna delle colonne attese trovata. Attese una tra: {candidates}. "
+            f"None of the expected columns found. Expected one of: {candidates}. "
             f"Colonne disponibili: {list(df.columns)}"
         )
     return None
@@ -157,15 +157,15 @@ def _filter_relations_by_activity_object_rules(
     if not activity_object_rules:
         return relations_df.copy()
 
-    # colonne eventi
+    # event columns
     ev_id_col = _pick_col(events_df, ["event_id", "ocel:eid", "eid"])
     ev_act_col = _pick_col(events_df, ["event_activity", "ocel:activity", "activity"])
 
-    # colonne oggetti
+    # object columns
     obj_id_col = _pick_col(objects_df, ["object_id", "ocel:oid", "oid"])
     obj_type_col = _pick_col(objects_df, ["object_type", "ocel:type", "type"])
 
-    # colonne relazioni
+    # relation columns
     rel_ev_col = _pick_col(relations_df, [ev_id_col, "event_id", "ocel:eid", "eid"])
     rel_obj_col = _pick_col(relations_df, [obj_id_col, "object_id", "ocel:oid", "oid"])
 
@@ -270,20 +270,20 @@ def extract_process_executions_connected_components_ocpa(
     Estrae le process executions come connected components
     su un OCEL OCPA, dopo aver filtrato:
     - i tipi di oggetto
-    - le attività
+    - activities
 
     Parametri
     ---------
     ocel : oggetto OCPA OCEL
     selected_object_types : iterable di nomi dei tipi oggetto da considerare
-    selected_activities : iterable di attività da considerare; se None, tiene tutte
+    selected_activities : iterable of activities to consider; if None, keep all
 
     Ritorna
     -------
     list[dict], dove ogni dict contiene:
       - pe_id
       - events               : lista ordinata di event ids
-      - activities           : lista ordinata delle attività
+      - activities           : sorted list of activities
       - objects_by_type      : dict tipo -> lista object ids
       - event_rows           : DataFrame delle righe evento della componente
       - bipartite_graph      : nx.Graph bipartito della componente
@@ -293,7 +293,7 @@ def extract_process_executions_connected_components_ocpa(
 
     df = ocel.log.log.copy()
 
-    # Colonne tipiche OCPA / OCEL
+    # Typical OCPA / OCEL columns
     event_id_col = _pick_col(df, ["event_id", "ocel:eid", "eid"])
     activity_col = _pick_col(df, ["event_activity", "ocel:activity", "activity"])
     timestamp_col = _pick_col(
@@ -305,21 +305,21 @@ def extract_process_executions_connected_components_ocpa(
     missing_types = [ot for ot in selected_object_types if ot not in df.columns]
     if missing_types:
         raise ValueError(
-            f"I seguenti object types non sono colonne del log OCPA: {missing_types}\n"
+            f"The following object types are not columns of the OCPA log: {missing_types}\n"
             f"Colonne disponibili: {list(df.columns)}"
         )
 
-    # 1) filtro attività
+    # 1) filter activities
     if selected_activities is not None:
         df = df[df[activity_col].isin(selected_activities)].copy()
 
     if df.empty:
         return []
 
-    # 2) costruisco il grafo bipartito eventi-oggetti
+    # 2) build bipartite event-object graph
     B = nx.Graph()
 
-    # terrò una versione leggera del df indicizzata per event_id
+    # keep a lightweight version of the df indexed by event_id
     event_rows_dict = {}
 
     for _, row in df.iterrows():
@@ -327,14 +327,14 @@ def extract_process_executions_connected_components_ocpa(
         act = row[activity_col]
         ts = row[timestamp_col] if timestamp_col is not None else None
 
-        # oggetti selezionati incidenti sull'evento
+        # selected objects incident on the event
         incident_objects = []
 
         for ot in selected_object_types:
             for oid in _norm_cell(row[ot]):
                 incident_objects.append((ot, oid))
 
-        # Se l'evento non tocca nessun oggetto dei tipi selezionati, non lo considero
+        # If the event touches no object of the selected types, skip it
         if not incident_objects:
             continue
 
@@ -376,7 +376,7 @@ def extract_process_executions_connected_components_ocpa(
             else:
                 objects_by_type[attrs["object_type"]].add(attrs["object_id"])
 
-        # ricostruisco il dataframe degli eventi della componente
+        # rebuild the event dataframe for the component
         event_rows = pd.DataFrame([event_rows_dict[eid] for eid in events])
 
         if timestamp_col is not None and timestamp_col in event_rows.columns:
@@ -401,7 +401,7 @@ def extract_process_executions_connected_components_ocpa(
             }
         )
 
-    # opzionale: ordino le PE per numero di eventi decrescente
+    # optional: sort PEs by descending number of events
     components.sort(key=lambda x: len(x["events"]), reverse=True)
 
     # riallineo gli id
@@ -432,7 +432,7 @@ OBJ_TYPE = "ocel:type"
 
 def _get_log_df(ocel) -> pd.DataFrame:
     """
-    Restituisce una tabella eventi 'larga' se disponibile.
+    Returns a 'wide' event table if available.
     Prova, nell'ordine:
     - ocel.log.log
     - ocel.log
@@ -510,7 +510,7 @@ def _get_explicit_relations_df(ocel) -> pd.DataFrame | None:
 
 
 # ============================================================
-# Grafo dei tipi
+# Type graph
 # ============================================================
 
 def _normalize_type_links(type_links: Dict[str, List[str] | str]) -> Dict[str, List[str]]:
@@ -586,8 +586,8 @@ def _topological_sort(graph: Dict[str, List[str]]) -> List[str]:
 
 def _maximal_nodes(reachable: Set[str], graph: Dict[str, List[str]]) -> List[str]:
     """
-    Nodi massimali nel sottografo raggiungibile:
-    nessun arco uscente verso un altro nodo raggiungibile.
+    Maximal nodes in the reachable subgraph:
+    no outgoing edge towards another reachable node.
     """
     out = []
     for u in reachable:
@@ -598,7 +598,7 @@ def _maximal_nodes(reachable: Set[str], graph: Dict[str, List[str]]) -> List[str
 
 
 # ============================================================
-# Ricostruzione oggetti e relazioni
+# Object and relation reconstruction
 # ============================================================
 
 def _get_object_ids_by_type_any(
@@ -609,7 +609,7 @@ def _get_object_ids_by_type_any(
     Restituisce:
         tipo -> lista ordinata di object ids
 
-    Prima prova con una tabella oggetti esplicita.
+    First tries with an explicit object table.
     Altrimenti ricostruisce dalla tabella larga.
     """
     obj_df = _get_explicit_objects_df(ocel)
@@ -688,7 +688,7 @@ def _build_event_index_any(
 
 
 # ============================================================
-# Mapping diretto tra tipi
+# Direct mapping between types
 # ============================================================
 
 def _infer_direct_mapping(
@@ -705,8 +705,8 @@ def _infer_direct_mapping(
     guardando la co-occorrenza negli stessi eventi.
 
     mode:
-    - "strict": se un source co-occorrerà con più target distinti, errore
-    - "most_frequent": prende il target più frequente
+    - "strict": if a source co-occurs with multiple distinct targets, raise error
+    - "most_frequent": pick the most frequent target
     """
     cooc = defaultdict(list)
 
@@ -744,13 +744,13 @@ def _infer_direct_mapping(
     if missing:
         raise ValueError(
             f"Impossibile ricavare il mapping {source_type} -> {target_type} "
-            f"per {len(missing)} oggetti. Esempi: {missing[:10]}"
+            f"for {len(missing)} objects. Examples: {missing[:10]}"
         )
 
     if ambiguous:
         ex = list(ambiguous.items())[:5]
         raise ValueError(
-            f"Il mapping {source_type} -> {target_type} non è univoco. "
+            f"The mapping {source_type} -> {target_type} is not unique. "
             f"Esempi: {ex}"
         )
 
@@ -773,11 +773,11 @@ def _build_all_direct_mappings(
 
     for src, tgts in type_links.items():
         if src not in object_ids_by_type:
-            raise ValueError(f"Tipo '{src}' non trovato negli oggetti del log.")
+            raise ValueError(f"Type '{src}' not found in log objects.")
 
         for tgt in tgts:
             if tgt not in object_ids_by_type:
-                raise ValueError(f"Tipo '{tgt}' non trovato negli oggetti del log.")
+                raise ValueError(f"Type '{tgt}' not found in log objects.")
 
             direct[(src, tgt)] = _infer_direct_mapping(
                 event_index=event_index,
@@ -816,7 +816,7 @@ def _compose_maps(
 
     if missing_mid:
         raise ValueError(
-            "Composizione fallita: alcuni oggetti intermedi non hanno mapping successivo. "
+            "Composition failed: some intermediate objects have no successor mapping. "
             f"Esempi: {missing_mid[:10]}"
         )
 
@@ -829,10 +829,10 @@ def _merge_candidate_maps(
     mode: str = "strict",
 ) -> Dict[str, str]:
     """
-    Unisce più mappe root -> node prodotte da cammini diversi.
+    Merges multiple root -> node maps produced by different paths.
     Se per uno stesso oggetto radice emergono target diversi:
-    - strict -> errore
-    - most_frequent -> sceglie il più frequente
+    - strict -> raise error
+    - most_frequent -> pick the most frequent
     """
     bucket = defaultdict(list)
     for cmap in candidate_maps:
@@ -861,7 +861,7 @@ def _merge_candidate_maps(
 
     if missing:
         raise ValueError(
-            "Alcuni oggetti della radice non raggiungono questo nodo. "
+            "Some root objects do not reach this node. "
             f"Esempi: {missing[:10]}"
         )
 
@@ -941,7 +941,7 @@ def build_rooted_lattice_json(
         packages -> items -> product -> packages_all
         orders   -> customers -> orders_all
 
-    Nel blocco di una radice, ogni mapping è sempre espresso come:
+    Within a root's block, every mapping is always expressed as:
         oggetto_della_radice -> oggetto_del_nodo
     """
     if mode not in {"strict", "most_frequent"}:
@@ -964,14 +964,14 @@ def build_rooted_lattice_json(
 
     for root in roots:
         if root not in object_ids_by_type:
-            raise ValueError(f"La radice '{root}' non esiste tra gli oggetti del log.")
+            raise ValueError(f"Root '{root}' not found in log objects.")
 
         reachable = _reachable_from(root, graph)
         sub_topo = [n for n in topo if n in reachable]
         root_object_ids = object_ids_by_type[root]
 
         if not root_object_ids:
-            raise ValueError(f"Nessun oggetto trovato per la radice '{root}'.")
+            raise ValueError(f"No objects found for root '{root}'.")
 
         # Per ogni nodo raggiungibile mantengo una mappa:
         #   root_obj -> node_obj
@@ -996,8 +996,8 @@ def build_rooted_lattice_json(
 
             if not candidate_maps:
                 raise ValueError(
-                    f"Il nodo '{node}' è raggiungibile da '{root}', "
-                    "ma non riesco a costruire il mapping dalla radice."
+                    f"Node '{node}' is reachable from '{root}', "
+                    "but cannot build the mapping from the root."
                 )
 
             root_to_node[node] = _merge_candidate_maps(
@@ -1069,7 +1069,7 @@ def build_filtered_logs_pm4py_and_ocpa(
         filtered_pm4py_ocel
         filtered_ocpa_ocel
 
-    Se output_path è valorizzato, salva il log filtrato su disco.
+    If output_path is set, saves the filtered log to disk.
     Supporta sia .jsonocel/.json sia .sqlite.
     """
 
@@ -1106,7 +1106,7 @@ def build_filtered_logs_pm4py_and_ocpa(
             keep_events_without_kept_objects=keep_events_without_kept_objects,
         )
 
-        # C) applica eventuali regole attività-oggetti
+        # C) apply optional activity-object rules
         filtered_pm4py = _apply_activity_object_rules_to_pm4py_ocel(
             ocel=filtered_pm4py,
             activity_object_rules=activity_object_rules,
@@ -1119,12 +1119,12 @@ def build_filtered_logs_pm4py_and_ocpa(
             os.close(fd_out)
             output_path = temp_output
 
-        # E) salva
+        # E) save
         pm4py.write_ocel(filtered_pm4py, output_path)
 
         if not os.path.exists(output_path):
             raise FileNotFoundError(
-                f"PM4Py non ha creato il file atteso: {output_path}"
+                f"PM4Py did not create the expected file: {output_path}"
             )
 
         # F) reimporta in OCPA in base al formato
@@ -1136,7 +1136,7 @@ def build_filtered_logs_pm4py_and_ocpa(
             filtered_ocpa = ocpa_import_factory_json.apply(output_path)
         else:
             raise ValueError(
-                f"Formato di output non supportato: {output_path}. "
+                f"Unsupported output format: {output_path}. "
                 f"Usa .jsonocel/.json oppure .sqlite"
             )
 
@@ -1179,15 +1179,15 @@ def _apply_activity_object_rules_to_pm4py_ocel(
     objects_df = new_ocel.objects.copy()
     relations_df = new_ocel.relations.copy()
 
-    # colonne eventi
+    # event columns
     ev_id_col = _pick_col(events_df, ["ocel:eid", "event_id", "eid"])
     ev_act_col = _pick_col(events_df, ["ocel:activity", "event_activity", "activity"])
 
-    # colonne oggetti
+    # object columns
     obj_id_col = _pick_col(objects_df, ["ocel:oid", "object_id", "oid"])
     obj_type_col = _pick_col(objects_df, ["ocel:type", "object_type", "type"])
 
-    # colonne relazioni
+    # relation columns
     rel_ev_col = _pick_col(relations_df, [ev_id_col, "ocel:eid", "event_id", "eid"])
     rel_obj_col = _pick_col(relations_df, [obj_id_col, "ocel:oid", "object_id", "oid"])
 
@@ -1228,13 +1228,13 @@ def _apply_activity_object_rules_to_pm4py_ocel(
 
     filtered_relations_df = relations_df.loc[mask_keep.values].copy()
 
-    # pulizia oggetti rimasti senza collegamenti
+    # clean up objects with no remaining links
     kept_object_ids = set(filtered_relations_df[rel_obj_col].dropna().unique())
     filtered_objects_df = objects_df[
         objects_df[obj_id_col].isin(kept_object_ids)
     ].copy()
 
-    # opzionale: rimuovi eventi rimasti senza oggetti
+    # optional: remove events left with no objects
     if keep_events_without_kept_objects:
         filtered_events_df = events_df.copy()
     else:
@@ -1261,11 +1261,11 @@ def _encode_resource_values(values, encoding="json_list", sep="|"):
     if encoding == "single":
         if len(vals) > 1:
             raise ValueError(
-                f"Trovate più risorse dove era atteso un solo valore: {vals}"
+                f"Multiple resources found where a single value was expected: {vals}"
             )
         return vals[0] if vals else None
 
-    raise ValueError(f"resource_encoding non supportato: {encoding}")
+    raise ValueError(f"Unsupported resource_encoding: {encoding}")
 
 
 def build_filtered_pm4py_ocel_with_resources(
@@ -1295,7 +1295,7 @@ def build_filtered_pm4py_ocel_with_resources(
     overlap = keep_object_types & resource_object_types
     if overlap:
         raise ValueError(
-            f"Questi tipi compaiono sia come oggetti tenuti sia come risorse: {sorted(overlap)}"
+            f"These types appear both as kept objects and as resources: {sorted(overlap)}"
         )
 
     EV_ID = ocel.event_id_column
@@ -1308,14 +1308,14 @@ def build_filtered_pm4py_ocel_with_resources(
     objects = ocel.objects.copy()
     relations = ocel.relations.copy()
 
-    # 1) filtra eventi
+    # 1) filter events
     new_events = events[events[ACTIVITY].isin(keep_event_types)].copy()
     kept_eids = set(new_events[EV_ID])
 
-    # 2) relazioni solo degli eventi tenuti
+    # 2) relations for kept events only
     rel = relations[relations[EV_ID].isin(kept_eids)].copy()
 
-    # 3) aggiungo il tipo oggetto in una vista di lavoro
+    # 3) add object type in a working view
     #    senza rompere lo schema originale di relations
     rel_work = rel.merge(
         objects[[OBJ_ID, OBJ_TYPE]],
@@ -1326,7 +1326,7 @@ def build_filtered_pm4py_ocel_with_resources(
 
     obj_type_work_col = OBJ_TYPE if OBJ_TYPE in rel_work.columns else f"{OBJ_TYPE}__obj"
     if obj_type_work_col not in rel_work.columns:
-        # se c'era già OBJ_TYPE in rel, dopo il merge resta quello;
+        # if OBJ_TYPE was already in rel, after merge it stays;
         # altrimenti dovrebbe esserci OBJ_TYPE__obj
         fallback = f"{OBJ_TYPE}__obj"
         if fallback in rel_work.columns:
@@ -1365,17 +1365,17 @@ def build_filtered_pm4py_ocel_with_resources(
     new_objects = objects[objects[OBJ_TYPE].isin(keep_object_types)].copy()
     kept_oids = set(new_objects[OBJ_ID])
 
-    # 6) filtra relations solo con gli oggetti mantenuti
+    # 6) filter relations to kept objects only
     new_relations = rel[rel[OBJ_ID].isin(kept_oids)].copy()
 
-    # 7) opzionale: elimina eventi rimasti senza oggetti veri
+    # 7) optional: drop events left with no real objects
     if not keep_events_without_kept_objects:
         eids_with_objects = set(new_relations[EV_ID])
         new_events = new_events[new_events[EV_ID].isin(eids_with_objects)].copy()
         kept_eids = set(new_events[EV_ID])
         new_relations = new_relations[new_relations[EV_ID].isin(kept_eids)].copy()
 
-    # 8) pulizia indici
+    # 8) clean up indices
     new_events = new_events.reset_index(drop=True)
     new_objects = new_objects.reset_index(drop=True)
     new_relations = new_relations.reset_index(drop=True)

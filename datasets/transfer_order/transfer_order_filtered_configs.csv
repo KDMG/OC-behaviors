@@ -1,5 +1,0 @@
-cfg,phi,interesting,reason_skipped,K,n_executions,avg_behavior_size,support_min,support_mean,support_max,reduction_from_bottom,compression_from_bottom
-"(1, 1)",matnr: ρ = type  │  nlqnr: ρ = type,True,,61,147,207.49659863945578,1,2.4098360655737703,31,0.5850340136054422,0.0
-"(0, 1)",matnr: ρ = id  │  nlqnr: ρ = type,False,no merging (K = n_executions),147,147,207.49659863945578,1,1.0,1,0.0,0.0
-"(1, 0)",matnr: ρ = type  │  nlqnr: ρ = id,False,no merging (K = n_executions),147,147,207.49659863945578,1,1.0,1,0.0,0.0
-"(0, 0)",matnr: ρ = id  │  nlqnr: ρ = id,False,no merging (K = n_executions),147,147,207.49659863945578,1,1.0,1,0.0,0.0

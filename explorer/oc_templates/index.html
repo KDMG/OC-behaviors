@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OC Behaviors — explorer</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">OC&nbsp;Behaviors</div>
+  <nav class="tabs">
+    <button class="tab active" data-tab="lattice">Configuration Space</button>
+    <button class="tab"        data-tab="behaviors">Behaviors</button>
+  </nav>
+  <div class="meta" id="meta"></div>
+</header>
+
+<section id="tab-lattice" class="panel">
+  <div class="lattice-host">
+    <div id="lattice-cy"></div>
+    <div id="lattice-empty" class="empty hidden">no useful configurations</div>
+  </div>
+  <div id="lattice-legend" class="legend"></div>
+
+  <div class="picker-host">
+    <div class="picker-head">
+      <h3>Build a configuration</h3>
+    </div>
+    <div class="picker-grid">
+      <div id="picker-rows"></div>
+      <div id="picker-preview" class="picker-preview"></div>
+    </div>
+  </div>
+</section>
+
+<section id="tab-behaviors" class="panel hidden">
+  <div id="behaviors-no-cfg" class="empty">
+    Select a configuration first.
+  </div>
+  <div id="behaviors-main" class="hidden">
+    <div class="row toolbar">
+      <span id="behaviors-count" class="badge">0</span>
+      <span id="behaviors-cfg" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;"></span>
+      <span class="muted" id="behaviors-subsume-note"></span>
+      <span class="grow"></span>
+
+    </div>
+    <div id="behaviors-list" class="behavior-cards"></div>
+    <div id="behaviors-empty" class="empty hidden">no behaviors</div>
+  </div>
+</section>
+
+<div id="modal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-body">
+    <button class="modal-close" id="modal-close">×</button>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

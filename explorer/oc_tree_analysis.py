@@ -29,16 +29,16 @@ def _kpi_unit(state, kpi: str) -> str:
             return k.get('unit', '') or ''
     return ''
 
-def pattern_matrix_for_cfg(state, cfg_idx: int, kpi: Optional[str]=None, after_subsumption: bool=True) -> Tuple[List[List[int]], List[float], List[int]]:
+def behavior_matrix_for_cfg(state, cfg_idx: int, kpi: Optional[str]=None, after_subsumption: bool=True) -> Tuple[List[List[int]], List[float], List[int]]:
     b = state.bundle
     if kpi is None:
         kpi = b.primary_kpi
     if after_subsumption:
-        pairs = state.patterns_after_subsumption(cfg_idx)
+        pairs = state.behaviors_after_subsumption(cfg_idx)
     else:
         run = b.cfg_runs[cfg_idx]
         pairs = list(enumerate(run.patterns))
-    pattern_ids = [pi for pi, _ in pairs]
+    behavior_ids = [pi for pi, _ in pairs]
     in_sets = [set(p.in_exec_idx) for _, p in pairs]
     n_exec = len(b.executions)
     kpi_values = b.kpi_values.get(kpi, [])
@@ -46,7 +46,7 @@ def pattern_matrix_for_cfg(state, cfg_idx: int, kpi: Optional[str]=None, after_s
         kpi_values = [0.0] * n_exec
     X = [[1 if i in s else 0 for s in in_sets] for i in range(n_exec)]
     y = [float(kpi_values[i]) for i in range(n_exec)]
-    return (X, y, pattern_ids)
+    return (X, y, behavior_ids)
 
 def _walk_tree_leaves(tree, feature_names: List[str]) -> List[Dict[str, Any]]:
     t = tree.tree_
@@ -64,17 +64,17 @@ def _walk_tree_leaves(tree, feature_names: List[str]) -> List[Dict[str, Any]]:
     _recurse(0, [])
     return out
 
-def fit_kpi_tree(X: List[List[int]], y: List[float], pattern_ids: List[int], max_depth: int=3, min_samples_leaf: int=20, test_size: float=0.25, seed: int=42) -> Dict[str, Any]:
-    if not pattern_ids:
+def fit_kpi_tree(X: List[List[int]], y: List[float], behavior_ids: List[int], max_depth: int=3, min_samples_leaf: int=20, test_size: float=0.25, seed: int=42) -> Dict[str, Any]:
+    if not behavior_ids:
         return {'status': 'no_patterns', 'n_features': 0, 'n_samples': len(y)}
     if len(y) < max(2, min_samples_leaf):
-        return {'status': 'too_few_samples', 'n_features': len(pattern_ids), 'n_samples': len(y)}
+        return {'status': 'too_few_samples', 'n_features': len(behavior_ids), 'n_samples': len(y)}
     if len(set(y)) <= 1:
-        return {'status': 'constant_y', 'n_features': len(pattern_ids), 'n_samples': len(y), 'constant_value': float(y[0]) if y else 0.0}
+        return {'status': 'constant_y', 'n_features': len(behavior_ids), 'n_samples': len(y), 'constant_value': float(y[0]) if y else 0.0}
     sk = _try_sklearn()
     if not sk['ok']:
-        return {'status': 'sklearn_missing', 'error': sk['error'], 'n_features': len(pattern_ids), 'n_samples': len(y)}
-    feature_names = [f'P{pi}' for pi in pattern_ids]
+        return {'status': 'sklearn_missing', 'error': sk['error'], 'n_features': len(behavior_ids), 'n_samples': len(y)}
+    feature_names = [f'B{pi}' for pi in behavior_ids]
     try:
         tree = sk['DecisionTreeRegressor'](max_depth=max_depth, min_samples_leaf=min_samples_leaf, random_state=seed)
         tree.fit(X, y)
@@ -88,9 +88,9 @@ def fit_kpi_tree(X: List[List[int]], y: List[float], pattern_ids: List[int], max
         used_pids = [int(name.lstrip('P')) for name in used if name.startswith('P') and name[1:].isdigit()]
         leaf_vals = [lf['value'] for lf in leaves]
         max_gap = max(leaf_vals) - min(leaf_vals) if leaf_vals else 0.0
-        return {'status': 'ok', 'n_features': len(pattern_ids), 'n_samples': len(y), 'n_train': len(X), 'n_test': 0, 'fit_mode': 'descriptive_full_population', 'r2': r2, 'mae': mae, 'tree_text': text, 'leaves': leaves, 'leaf_values': leaf_vals, 'max_leaf_gap': float(max_gap), 'used_features': used, 'used_patterns': used_pids, 'n_used_patterns': len(used_pids), 'max_depth_used': int(tree.get_depth())}
+        return {'status': 'ok', 'n_features': len(behavior_ids), 'n_samples': len(y), 'n_train': len(X), 'n_test': 0, 'fit_mode': 'descriptive_full_population', 'r2': r2, 'mae': mae, 'tree_text': text, 'leaves': leaves, 'leaf_values': leaf_vals, 'max_leaf_gap': float(max_gap), 'used_features': used, 'used_behaviors': used_pids, 'n_used_behaviors': len(used_pids), 'max_depth_used': int(tree.get_depth())}
     except Exception as exn:
-        return {'status': 'sklearn_failure', 'error': f'{type(exn).__name__}: {exn}', 'n_features': len(pattern_ids), 'n_samples': len(y)}
+        return {'status': 'sklearn_failure', 'error': f'{type(exn).__name__}: {exn}', 'n_features': len(behavior_ids), 'n_samples': len(y)}
 
 def _classify(A: set, B: set, U: set) -> str:
     if not A or not B:
@@ -107,7 +107,7 @@ def _classify(A: set, B: set, U: set) -> str:
         return 'implies_b_to_a'
     return 'overlap'
 
-def pattern_relation(state, cfg_idx: int, p_a: int, p_b: int) -> Dict[str, Any]:
+def behavior_relation(state, cfg_idx: int, p_a: int, p_b: int) -> Dict[str, Any]:
     b = state.bundle
     run = b.cfg_runs[cfg_idx]
     if not 0 <= p_a < len(run.patterns) or not 0 <= p_b < len(run.patterns):
@@ -127,7 +127,7 @@ def find_complement_pairs(state, cfg_idx: int, kpi: Optional[str]=None, after_su
     n_exec = len(b.executions)
     U = set(range(n_exec))
     if after_subsumption:
-        pairs = state.patterns_after_subsumption(cfg_idx)
+        pairs = state.behaviors_after_subsumption(cfg_idx)
     else:
         pairs = list(enumerate(b.cfg_runs[cfg_idx].patterns))
     in_sets = [(pi, set(p.in_exec_idx)) for pi, p in pairs]
@@ -145,14 +145,14 @@ def find_complement_pairs(state, cfg_idx: int, kpi: Optional[str]=None, after_su
     out.sort(key=lambda r: r['abs_delta'], reverse=True)
     return out
 
-def pattern_details(state, cfg_idx: int, pattern_ids: List[int], kpi: Optional[str]=None) -> List[Dict[str, Any]]:
+def behavior_details(state, cfg_idx: int, behavior_ids: List[int], kpi: Optional[str]=None) -> List[Dict[str, Any]]:
     b = state.bundle
     if kpi is None:
         kpi = b.primary_kpi
     unit = _kpi_unit(state, kpi)
     run = b.cfg_runs[cfg_idx]
     out: List[Dict[str, Any]] = []
-    for pi in pattern_ids:
+    for pi in behavior_ids:
         if not 0 <= pi < len(run.patterns):
             continue
         pat = run.patterns[pi]
@@ -170,7 +170,7 @@ def pattern_details(state, cfg_idx: int, pattern_ids: List[int], kpi: Optional[s
         signed = float(stats.get('signed_delta', delta) or 0.0)
         mu_in = float(stats.get('mu_in', 0.0) or 0.0)
         mu_out = float(stats.get('mu_out', 0.0) or 0.0)
-        out.append({'pattern_idx': pi, 'support': int(pat.support), 'n_in': len(pat.in_exec_idx), 'n_out': len(pat.out_exec_idx), 'size_nodes': int(pat.size_nodes), 'size_edges': int(pat.size_edges), 'mu_in': mu_in, 'mu_out': mu_out, 'mu_in_fmt': _fmt_kpi_value(mu_in, unit), 'mu_out_fmt': _fmt_kpi_value(mu_out, unit), 'delta': delta, 'signed_delta': signed, 'delta_fmt': _fmt_kpi_value(abs(delta), unit), 'graph': {'nodes': nodes, 'edges': edges}})
+        out.append({'behavior_idx': pi, 'support': int(pat.support), 'n_in': len(pat.in_exec_idx), 'n_out': len(pat.out_exec_idx), 'size_nodes': int(pat.size_nodes), 'size_edges': int(pat.size_edges), 'mu_in': mu_in, 'mu_out': mu_out, 'mu_in_fmt': _fmt_kpi_value(mu_in, unit), 'mu_out_fmt': _fmt_kpi_value(mu_out, unit), 'delta': delta, 'signed_delta': signed, 'delta_fmt': _fmt_kpi_value(abs(delta), unit), 'graph': {'nodes': nodes, 'edges': edges}})
     return out
 
 def summarize_cfg_tree(state, cfg_idx: int, kpi: Optional[str]=None, max_depth: int=3, min_samples_leaf: int=20) -> Dict[str, Any]:
@@ -182,13 +182,13 @@ def summarize_cfg_tree(state, cfg_idx: int, kpi: Optional[str]=None, max_depth: 
         return {'status': 'out_of_range'}
     run = b.cfg_runs[cfg_idx]
     cfg_str = state.lattice[cfg_idx].cfg_str if state.lattice else ''
-    X, y, pat_ids = pattern_matrix_for_cfg(state, cfg_idx, kpi=kpi)
-    tree = fit_kpi_tree(X, y, pat_ids, max_depth=max_depth, min_samples_leaf=min_samples_leaf)
-    used_patterns = tree.get('used_patterns', [])
-    pat_info = pattern_details(state, cfg_idx, used_patterns, kpi=kpi)
+    X, y, beh_ids = behavior_matrix_for_cfg(state, cfg_idx, kpi=kpi)
+    tree = fit_kpi_tree(X, y, beh_ids, max_depth=max_depth, min_samples_leaf=min_samples_leaf)
+    used_behaviors = tree.get('used_behaviors', [])
+    pat_info = behavior_details(state, cfg_idx, used_behaviors, kpi=kpi)
     complements = find_complement_pairs(state, cfg_idx, kpi=kpi)
     max_gap = float(tree.get('max_leaf_gap', 0.0) or 0.0)
-    return {'status': tree['status'], 'cfg_idx': cfg_idx, 'cfg': list(run.cfg), 'cfg_str': cfg_str, 'K': run.K, 'n_patterns': len(pat_ids), 'kpi': kpi, 'kpi_unit': unit, 'tree': tree, 'pattern_details': pat_info, 'complement_pairs': complements, 'n_complement_pairs': len(complements), 'max_leaf_gap': max_gap, 'max_leaf_gap_fmt': _fmt_kpi_value(max_gap, unit)}
+    return {'status': tree['status'], 'cfg_idx': cfg_idx, 'cfg': list(run.cfg), 'cfg_str': cfg_str, 'K': run.K, 'n_abstractions': len(beh_ids), 'kpi': kpi, 'kpi_unit': unit, 'tree': tree, 'behavior_details': pat_info, 'complement_pairs': complements, 'n_complement_pairs': len(complements), 'max_leaf_gap': max_gap, 'max_leaf_gap_fmt': _fmt_kpi_value(max_gap, unit)}
 
 def _compute_score(gap: float, r2: float, n_pairs: int, gap_max: float, pairs_max: int) -> float:
     g_norm = gap / gap_max if gap_max > 0 else 0.0
@@ -205,18 +205,18 @@ def analyze_all_cfgs(state, kpi: Optional[str]=None, max_depth: int=6, min_sampl
     for ci, run in enumerate(b.cfg_runs):
         if not run.is_interesting:
             continue
-        kept = state.patterns_after_subsumption(ci)
+        kept = state.behaviors_after_subsumption(ci)
         n_kept = len(kept) if kept is not None else len(run.patterns)
         if n_kept < 1:
             continue
-        X, y, pat_ids = pattern_matrix_for_cfg(state, ci, kpi=kpi)
-        tree = fit_kpi_tree(X, y, pat_ids, max_depth=max_depth, min_samples_leaf=min_samples_leaf)
+        X, y, beh_ids = behavior_matrix_for_cfg(state, ci, kpi=kpi)
+        tree = fit_kpi_tree(X, y, beh_ids, max_depth=max_depth, min_samples_leaf=min_samples_leaf)
         complements = find_complement_pairs(state, ci, kpi=kpi)
         cfg_str = state.lattice[ci].cfg_str if state.lattice else ''
         gap = float(tree.get('max_leaf_gap', 0.0) or 0.0)
         r2 = float(tree.get('r2', 0.0) or 0.0)
         mae = float(tree.get('mae', 0.0) or 0.0)
-        rows.append({'cfg_idx': ci, 'cfg': list(run.cfg), 'cfg_str': cfg_str, 'K': run.K, 'n_patterns': n_kept, 'tree_status': tree.get('status', 'unknown'), 'tree_r2': r2, 'tree_mae': mae, 'max_leaf_gap': gap, 'max_leaf_gap_fmt': _fmt_kpi_value(gap, unit), 'used_patterns': tree.get('used_patterns', []), 'n_used_patterns': tree.get('n_used_patterns', 0), 'n_complement_pairs': len(complements)})
+        rows.append({'cfg_idx': ci, 'cfg': list(run.cfg), 'cfg_str': cfg_str, 'K': run.K, 'n_abstractions': n_kept, 'tree_status': tree.get('status', 'unknown'), 'tree_r2': r2, 'tree_mae': mae, 'max_leaf_gap': gap, 'max_leaf_gap_fmt': _fmt_kpi_value(gap, unit), 'used_behaviors': tree.get('used_behaviors', []), 'n_used_behaviors': tree.get('n_used_behaviors', 0), 'n_complement_pairs': len(complements)})
     if not rows:
         return rows
     gap_max = max((r['max_leaf_gap'] for r in rows), default=0.0)
@@ -229,8 +229,8 @@ def analyze_all_cfgs(state, kpi: Optional[str]=None, max_depth: int=6, min_sampl
 def compute_leaf_membership(state, cfg_idx: int, kpi: Optional[str]=None, max_depth: int=3, min_samples_leaf: int=20, seed: int=42) -> Dict[str, Any]:
     if kpi is None:
         kpi = state.bundle.primary_kpi
-    X, y, pattern_ids = pattern_matrix_for_cfg(state, cfg_idx, kpi=kpi)
-    if not pattern_ids:
+    X, y, behavior_ids = behavior_matrix_for_cfg(state, cfg_idx, kpi=kpi)
+    if not behavior_ids:
         return {'status': 'no_patterns', 'cfg_idx': cfg_idx, 'kpi': kpi, 'leaves': []}
     if len(y) < max(2, min_samples_leaf):
         return {'status': 'too_few_samples', 'cfg_idx': cfg_idx, 'kpi': kpi, 'n_samples': len(y), 'leaves': []}
@@ -239,16 +239,16 @@ def compute_leaf_membership(state, cfg_idx: int, kpi: Optional[str]=None, max_de
     sk = _try_sklearn()
     if not sk['ok']:
         return {'status': 'sklearn_missing', 'error': sk['error'], 'cfg_idx': cfg_idx, 'kpi': kpi, 'leaves': []}
-    feature_names = [f'P{pi}' for pi in pattern_ids]
+    feature_names = [f'B{pi}' for pi in behavior_ids]
 
-    def _make_human_label(leaf_id: int, path_patterns: List[Dict[str, Any]]) -> str:
-        if not path_patterns:
+    def _make_human_label(leaf_id: int, path_behaviors: List[Dict[str, Any]]) -> str:
+        if not path_behaviors:
             return f'L{leaf_id} = all'
         parts: List[str] = []
-        for step in path_patterns:
-            pi = step['pattern_idx']
+        for step in path_behaviors:
+            pi = step['behavior_idx']
             if step.get('presence'):
-                parts.append(f'P{pi}')
+                parts.append(f'B{pi}')
             else:
                 parts.append(f'¬P{pi}')
         return f'L{leaf_id} = ' + ' ∧ '.join(parts)
@@ -261,33 +261,33 @@ def compute_leaf_membership(state, cfg_idx: int, kpi: Optional[str]=None, max_de
             leaf_to_exec.setdefault(int(lid), []).append(i)
         t = tree.tree_
         paths_by_node: Dict[int, List[Dict[str, Any]]] = {}
-        path_patterns_by_node: Dict[int, List[Dict[str, Any]]] = {}
+        path_behaviors_by_node: Dict[int, List[Dict[str, Any]]] = {}
 
-        def _recurse(node: int, path: List[Dict[str, Any]], path_patterns: List[Dict[str, Any]]) -> None:
+        def _recurse(node: int, path: List[Dict[str, Any]], path_behaviors: List[Dict[str, Any]]) -> None:
             if t.feature[node] == -2:
                 paths_by_node[int(node)] = list(path)
-                path_patterns_by_node[int(node)] = list(path_patterns)
+                path_behaviors_by_node[int(node)] = list(path_behaviors)
                 return
             feat_idx = int(t.feature[node])
             feat_name = feature_names[feat_idx] if 0 <= feat_idx < len(feature_names) else f'f{feat_idx}'
-            pattern_idx = int(pattern_ids[feat_idx]) if 0 <= feat_idx < len(pattern_ids) else feat_idx
+            behavior_idx = int(behavior_ids[feat_idx]) if 0 <= feat_idx < len(behavior_ids) else feat_idx
             threshold = float(t.threshold[node])
             left_old_step = {'feature': feat_name, 'value': 0}
-            left_pattern_step = {'pattern_idx': pattern_idx, 'feature_idx': feat_idx, 'feature': feat_name, 'threshold': threshold, 'operator': '<=', 'value': 0, 'presence': False, 'human_condition': f'P{pattern_idx} assente', 'logic': f'¬P{pattern_idx}'}
-            _recurse(int(t.children_left[node]), path + [left_old_step], path_patterns + [left_pattern_step])
+            left_pattern_step = {'behavior_idx': behavior_idx, 'feature_idx': feat_idx, 'feature': feat_name, 'threshold': threshold, 'operator': '<=', 'value': 0, 'presence': False, 'human_condition': f'B{behavior_idx} absent', 'logic': f'¬B{behavior_idx}'}
+            _recurse(int(t.children_left[node]), path + [left_old_step], path_behaviors + [left_pattern_step])
             right_old_step = {'feature': feat_name, 'value': 1}
-            right_pattern_step = {'pattern_idx': pattern_idx, 'feature_idx': feat_idx, 'feature': feat_name, 'threshold': threshold, 'operator': '>', 'value': 1, 'presence': True, 'human_condition': f'P{pattern_idx} presente', 'logic': f'P{pattern_idx}'}
-            _recurse(int(t.children_right[node]), path + [right_old_step], path_patterns + [right_pattern_step])
+            right_pattern_step = {'behavior_idx': behavior_idx, 'feature_idx': feat_idx, 'feature': feat_name, 'threshold': threshold, 'operator': '>', 'value': 1, 'presence': True, 'human_condition': f'B{behavior_idx} present', 'logic': f'B{behavior_idx}'}
+            _recurse(int(t.children_right[node]), path + [right_old_step], path_behaviors + [right_pattern_step])
         _recurse(0, [], [])
         leaves: List[Dict[str, Any]] = []
         for nid, exec_idx in leaf_to_exec.items():
             nid = int(nid)
             path = paths_by_node.get(nid, [])
-            path_patterns = path_patterns_by_node.get(nid, [])
-            human_label = _make_human_label(nid, path_patterns)
-            leaves.append({'leaf_id': nid, 'path': path, 'path_patterns': path_patterns, 'human_label': human_label, 'value': float(t.value[nid][0][0]), 'n_samples': len(exec_idx), 'exec_idx': list(exec_idx)})
+            path_behaviors = path_behaviors_by_node.get(nid, [])
+            human_label = _make_human_label(nid, path_behaviors)
+            leaves.append({'leaf_id': nid, 'path': path, 'path_behaviors': path_behaviors, 'human_label': human_label, 'value': float(t.value[nid][0][0]), 'n_samples': len(exec_idx), 'exec_idx': list(exec_idx)})
         leaves.sort(key=lambda lf: -lf['n_samples'])
-        return {'status': 'ok', 'cfg_idx': cfg_idx, 'kpi': kpi, 'n_features': len(pattern_ids), 'n_samples': len(y), 'pattern_ids': list(pattern_ids), 'feature_names': feature_names, 'tree_text': sk['export_text'](tree, feature_names=feature_names), 'leaves': leaves}
+        return {'status': 'ok', 'cfg_idx': cfg_idx, 'kpi': kpi, 'n_features': len(behavior_ids), 'n_samples': len(y), 'behavior_ids': list(behavior_ids), 'feature_names': feature_names, 'tree_text': sk['export_text'](tree, feature_names=feature_names), 'leaves': leaves}
     except Exception as exn:
         return {'status': 'sklearn_failure', 'error': f'{type(exn).__name__}: {exn}', 'cfg_idx': cfg_idx, 'kpi': kpi, 'leaves': []}
 
@@ -316,7 +316,7 @@ def cross_leaf_distribution(state, source_cfg_idx: int, source_leaf_id: int, kpi
     src_exec_set = set(src_leaf['exec_idx'])
     n_src = len(src_exec_set)
     source_human_label = src_leaf.get('human_label', f'L{source_leaf_id}')
-    source_path_patterns = src_leaf.get('path_patterns', [])
+    source_path_behaviors = src_leaf.get('path_behaviors', [])
     if target_cfgs is None:
         target_cfgs = [ci for ci, run in enumerate(b.cfg_runs) if ci != source_cfg_idx and run.is_interesting]
     kpi_vals = b.kpi_values.get(kpi, [])
@@ -335,7 +335,7 @@ def cross_leaf_distribution(state, source_cfg_idx: int, source_leaf_id: int, kpi
             mean_kpi = sum((kpi_vals[i] for i in overlap)) / n_overlap if kpi_vals else 0.0
             frac_of_source = n_overlap / n_src if n_src else 0.0
             frac_of_target_leaf = n_overlap / len(tgt_set) if tgt_set else 0.0
-            tgt_leaves.append({'leaf_id': lf['leaf_id'], 'path': lf.get('path', []), 'human_label': lf.get('human_label', f"L{lf['leaf_id']}"), 'path_patterns': lf.get('path_patterns', []), 'n_overlap': n_overlap, 'exec_idx': sorted(overlap), 'n_total_in_leaf': len(tgt_set), 'frac_of_source': frac_of_source, 'frac_of_target_leaf': frac_of_target_leaf, 'mean_kpi': float(mean_kpi), 'mean_kpi_fmt': _fmt_kpi_value(mean_kpi, unit)})
+            tgt_leaves.append({'leaf_id': lf['leaf_id'], 'path': lf.get('path', []), 'human_label': lf.get('human_label', f"L{lf['leaf_id']}"), 'path_behaviors': lf.get('path_behaviors', []), 'n_overlap': n_overlap, 'exec_idx': sorted(overlap), 'n_total_in_leaf': len(tgt_set), 'frac_of_source': frac_of_source, 'frac_of_target_leaf': frac_of_target_leaf, 'mean_kpi': float(mean_kpi), 'mean_kpi_fmt': _fmt_kpi_value(mean_kpi, unit)})
         if not tgt_leaves:
             continue
         tgt_leaves.sort(key=lambda r: -r['n_overlap'])
@@ -346,4 +346,4 @@ def cross_leaf_distribution(state, source_cfg_idx: int, source_leaf_id: int, kpi
     out.sort(key=lambda r: -r['entropy'])
     if top_n is not None:
         out = out[:top_n]
-    return {'status': 'ok', 'source_cfg_idx': source_cfg_idx, 'source_leaf_id': source_leaf_id, 'source_n_exec': n_src, 'source_path': src_leaf.get('path', []), 'source_leaf': src_leaf, 'source_human_label': source_human_label, 'source_path_patterns': source_path_patterns, 'source_value': src_leaf['value'], 'source_value_fmt': _fmt_kpi_value(src_leaf['value'], unit), 'kpi': kpi, 'kpi_unit': unit, 'targets': out}
+    return {'status': 'ok', 'source_cfg_idx': source_cfg_idx, 'source_leaf_id': source_leaf_id, 'source_n_exec': n_src, 'source_path': src_leaf.get('path', []), 'source_leaf': src_leaf, 'source_human_label': source_human_label, 'source_path_behaviors': source_path_behaviors, 'source_value': src_leaf['value'], 'source_value_fmt': _fmt_kpi_value(src_leaf['value'], unit), 'kpi': kpi, 'kpi_unit': unit, 'targets': out}

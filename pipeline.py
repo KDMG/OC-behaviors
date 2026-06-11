@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 from __future__ import annotations
 
 import argparse
@@ -11,11 +10,6 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Helpers
-# ─────────────────────────────────────────────────────────────────────────────
 
 def count_process_executions(ocel_path: str, leading_type: str) -> int:
     p = Path(ocel_path)
@@ -35,7 +29,7 @@ def detect_types_to_remove(ocel_path: str, tau: float = 0.9) -> list[str]:
     from mlpa.my_ocel_importer import apply as load_ocel_sqlite
     from mlpa.MLPAMiner import mlpaDiscovery
 
-    print(f"\n[mlpa] Running mlpaDiscovery on {ocel_path}  (tau={tau}) …")
+    print(f"\n[mlpa] Running mlpaDiscovery on {ocel_path}")
     ocel = load_ocel_sqlite(ocel_path)
     _, _, process_view_with_events = mlpaDiscovery(ocel, tau=tau)
 
@@ -73,8 +67,7 @@ def run_mining(
     s_max: float,
     support_abs: bool,
     quiet: bool,
-    extra_args: list[str],
-    n_workers: int = 1,
+    extra_args: list[str]
 ) -> None:
     cmd = [
         sys.executable, str(_ROOT / "rho_lift.py"),
@@ -91,8 +84,6 @@ def run_mining(
         cmd.append("--support-abs")
     if quiet:
         cmd.append("--quiet")
-    if n_workers != 1:
-        cmd += ["--workers", str(n_workers)]
     cmd.extend(extra_args)
 
     print(f"\n[mine] {' '.join(cmd)}")
@@ -116,20 +107,17 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=__doc__,
     )
 
-    # Positional — input OCEL (not needed for --explore-only)
     ap.add_argument(
         "ocel", nargs="?", default=None,
         help="Input OCEL path (.sqlite). Not required with --explore-only.",
     )
 
-    # Shortcut: only open the explorer on an existing bundle
     ap.add_argument(
         "--explore-only", metavar="BUNDLE",
         help="Skip everything and open the explorer on an existing .pkl bundle.",
     )
 
-    # ── mlpa ──────────────────────────────────────────────────────────────────
-    mlpa = ap.add_argument_group("mlpa (step 1)")
+    mlpa = ap.add_argument_group("mlpa")
     mlpa.add_argument(
         "--tau", type=float, default=0.9,
         help="mlpaDiscovery tau threshold (default: 0.9).",
@@ -143,8 +131,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Skip the mlpa step entirely (requires --remove-types or --skip-filter).",
     )
 
-    # ── filter ────────────────────────────────────────────────────────────────
-    flt = ap.add_argument_group("filter (step 2)")
+    flt = ap.add_argument_group("filter")
     flt.add_argument(
         "--filtered", metavar="PATH",
         help="Output path for the filtered OCEL. "
@@ -155,8 +142,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Skip the filter step and mine the raw input OCEL directly.",
     )
 
-    # ── mining ────────────────────────────────────────────────────────────────
-    mine = ap.add_argument_group("mining / rho_lift (step 3)")
+    mine = ap.add_argument_group("mining")
     mine.add_argument(
         "--bundle", metavar="PATH",
         help="Output .pkl bundle for the interactive explorer.",
@@ -185,12 +171,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Interpret --s-min/--s-max as absolute counts. "
              "Enabled automatically when defaults are used.",
     )
-    mine.add_argument("--workers", type=int, default=1,
-        help="Parallel workers for subgraph mining. Use -1 for all CPU cores (default: 1).")
     mine.add_argument("--quiet", action="store_true", help="Silence rho_lift progress logs.")
 
-    # ── explorer ──────────────────────────────────────────────────────────────
-    exp = ap.add_argument_group("explorer (step 4)")
+    exp = ap.add_argument_group("explorer")
     exp.add_argument(
         "--explore", action="store_true",
         help="Launch the interactive explorer automatically after mining.",
@@ -231,8 +214,6 @@ def main(argv=None) -> int:
         mining_input = ocel_path
         print(f"[filter] Skipped — mining from original: {mining_input}")
     else:
-        # Always run ocel_filter: it sanitises names and discretises attributes
-        # even when no types need to be removed.
         run_filter(ocel_path, filtered_path, remove_types)
         mining_input = filtered_path
 
@@ -260,13 +241,11 @@ def main(argv=None) -> int:
             print(f"[pipeline] Could not count executions; using fractions "
                   f"s-min={s_min}, s-max={s_max}")
 
-    n_w = __import__('os').cpu_count() if args.workers == -1 else args.workers
     run_mining(
         mining_input, args.bundle, args.leading,
         args.miner, kpis,
         s_min, s_max, support_abs,
         args.quiet, extra_mining_args,
-        n_workers=n_w,
     )
 
     print(f"\n[pipeline] Bundle saved to: {args.bundle}")

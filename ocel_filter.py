@@ -151,7 +151,7 @@ def export_ocel(log: dict, path: str | Path) -> None:
     if fmt not in dispatch:
         raise ValueError(f'Formato sconosciuto: {fmt}')
     dispatch[fmt](log, p)
-    print(f'[export] Log salvato in: {p}')
+    print(f'[export] Log saved to: {p}')
 
 def _load_ocel1_json(raw: dict) -> dict:
     events = {}
@@ -718,10 +718,10 @@ def log_summary(log: dict, title: str='SUMMARY') -> dict:
     print('─' * 60)
     print(f'  {title}')
     print('─' * 60)
-    print(f"  Oggetti totali:        {summary['num_objects']}")
+    print(f"  Total objects:         {summary['num_objects']}")
     print(f"  Tipi di oggetto:       {summary['num_object_types']}")
     print(f"  Eventi totali:         {summary['num_events']}")
-    print(f"  Tipi di attività:      {summary['num_activity_types']}")
+    print(f"  Activity types:        {summary['num_activity_types']}")
     print(f"  Relazioni O2O:         {summary['num_o2o']}")
     print('─' * 60)
     return summary
@@ -739,7 +739,7 @@ def run_auto(input_path: str, output_path: str, remove_types: list[str]) -> None
 
     print("Tipi di oggetto presenti:")
     for object_type, count in sorted(list_object_types(log).items()):
-        print(f"  {object_type}: {count} oggetti")
+        print(f"  {object_type}: {count} objects")
 
     input_suffix = Path(input_path).suffix.lower()
     if input_suffix in (".sqlite", ".db"):
@@ -765,7 +765,7 @@ def run_auto(input_path: str, output_path: str, remove_types: list[str]) -> None
 
     print("\n[association_by_type]")
     if not absorption:
-        print("Nessun tipo rimosso viene assorbito da un altro tipo oggetto.")
+        print("No removed type is absorbed by another object type.")
     else:
         for removed_type, target_type in sorted(absorption.items()):
             if target_type is None:

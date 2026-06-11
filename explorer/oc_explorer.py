@@ -18,7 +18,7 @@ from explorer.oc_tree_analysis import (
     analyze_all_cfgs,
     compute_leaf_membership,
     cross_leaf_distribution,
-    pattern_relation as tree_pattern_relation,
+    behavior_relation as tree_behavior_relation,
     summarize_cfg_tree,
 )
 
@@ -40,14 +40,14 @@ def _fmt_kpi(value: float, unit: str) -> Dict[str, Any]:
         pretty = f"{value:.3f} {unit}"
     return {"raw": float(value), "unit": unit, "pretty": pretty}
 
-def _pattern_to_cy(pattern) -> Dict[str, Any]:
+def _behavior_to_cy(behavior) -> Dict[str, Any]:
     nodes = [
         {"data": {"id": f"n{n}", "label": d.get("label", str(n))}}
-        for n, d in pattern.nodes(data=True)
+        for n, d in behavior.nodes(data=True)
     ]
     edges: List[Dict[str, Any]] = []
     eid = 0
-    for u, v, d in pattern.edges(data=True):
+    for u, v, d in behavior.edges(data=True):
         labels = d.get("labels")
         if labels is None:
             lbl = d.get("label")
@@ -163,10 +163,10 @@ def find_min_occupied_leaf_target_cfgs(
 
     ranked_targets.sort(
         key=lambda r: (
-            r["occupied_leaf_count"],          # priorità assoluta
-            -r["top_overlap"],                 # tie-break: più massa nella foglia maggiore
-            r.get("entropy", 0.0),             # tie-break: meno dispersione
-            -r["top_frac_of_source"],          # tie-break ulteriore
+            r["occupied_leaf_count"],
+            -r["top_overlap"],
+            r.get("entropy", 0.0),
+            -r["top_frac_of_source"],
         )
     )
 
@@ -198,38 +198,10 @@ def _level_name(level_names: Dict[str, Any], tau: str, L: int) -> str:
 def print_rho_dependencies(state: ExplorerState) -> None:
     b = state.bundle
 
-    print("\n" + "=" * 80)
-    print("DIPENDENZE FUNZIONALI TRA LIVELLI ρ")
-    print("=" * 80)
-
     for tau in b.types:
         h = state.hierarchies.get(tau)
         if h is None:
-            print(f"\nTipo {tau}: nessuna gerarchia")
             continue
-
-        print(f"\nTipo oggetto: {tau}")
-        print("-" * 80)
-
-        print("Cover up — livelli immediatamente più generali:")
-        for L in range(h.k + 1):
-            ups = list(h.cover_up.get(L, []))
-            L_name = _level_name(b.level_names, tau, L)
-            ups_str = ", ".join(
-                f"{U} ({_level_name(b.level_names, tau, U)})"
-                for U in ups
-            ) or "∅"
-            print(f"  {L} ({L_name})  ->  {ups_str}")
-
-        print("\nCover down — livelli immediatamente più specifici:")
-        for L in range(h.k + 1):
-            downs = list(h.cover_dn.get(L, []))
-            L_name = _level_name(b.level_names, tau, L)
-            downs_str = ", ".join(
-                f"{D} ({_level_name(b.level_names, tau, D)})"
-                for D in downs
-            ) or "∅"
-            print(f"  {L} ({L_name})  <-  {downs_str}")
 
 def create_app(state: ExplorerState) -> Flask:
     here = os.path.dirname(os.path.abspath(__file__))
@@ -262,7 +234,7 @@ def create_app(state: ExplorerState) -> Flask:
             "n_cfg_total": b.n_cfg_total,
             "n_cfg_interesting": b.n_cfg_interesting,
             "n_cfg_skipped": b.n_cfg_skipped,
-            "n_patterns_total": b.n_patterns_total,
+            "n_behaviors_total": getattr(b, "n_behaviors_total", getattr(b, "n_behaviors_total", 0)),
             "kpis": b.kpi_specs,
             "primary_kpi": b.primary_kpi,
             "level_names": b.level_names,
@@ -284,16 +256,21 @@ def create_app(state: ExplorerState) -> Flask:
                 L: list(h.cover_dn.get(L, [])) for L in range(h.k + 1)
             }
 
+        kept_counts = {
+            r.cfg_idx: len(state.behaviors_after_subsumption(r.cfg_idx))
+            for r in state.lattice
+        }
         rows = [
             {
-                "cfg_idx":        r.cfg_idx,
-                "cfg":            r.cfg,
-                "cfg_str":        r.cfg_str,
-                "K":              r.K,
-                "n_patterns":     r.n_patterns,
-                "n_executions":   r.n_executions,
-                "is_interesting": r.is_interesting,
-                "best_delta":     r.best_delta,
+                "cfg_idx":              r.cfg_idx,
+                "cfg":                  r.cfg,
+                "cfg_str":              r.cfg_str,
+                "K":                    r.K,
+                "n_abstractions":       r.n_abstractions,
+                "n_abstractions_kept":  kept_counts.get(r.cfg_idx, r.n_abstractions),
+                "n_executions":         r.n_executions,
+                "is_interesting":       r.is_interesting,
+                "best_delta":           r.best_delta,
             }
             for r in state.lattice
         ]
@@ -332,7 +309,7 @@ def create_app(state: ExplorerState) -> Flask:
         cache = getattr(state, "_leaves_cache", None)
         if cache is None:
             cache = {}
-            state._leaves_cache = cache  # type: ignore[attr-defined]
+            state._leaves_cache = cache
 
         payload = find_min_occupied_leaf_target_cfgs(
             state=state,
@@ -359,15 +336,15 @@ def create_app(state: ExplorerState) -> Flask:
             kpi = b.primary_kpi
         unit = kpi_unit_of.get(kpi, "")
 
-        kept_pairs = state.patterns_after_subsumption(ci)
+        kept_behaviors = state.behaviors_after_subsumption(ci)
         rows = []
-        for pi, p in kept_pairs:
+        for pi, p in kept_behaviors:
             stats = p.kpi_stats.get(kpi, {})
             delta = stats.get("delta", 0.0)
             signed = stats.get("signed_delta", delta)
             rows.append({
                 "cfg_idx": ci,
-                "pattern_idx": pi,
+                "behavior_idx": pi,
                 "size_nodes": p.size_nodes,
                 "size_edges": p.size_edges,
                 "support": p.support,
@@ -387,11 +364,57 @@ def create_app(state: ExplorerState) -> Flask:
             "cfg": list(run.cfg),
             "cfg_str": fmt_cfg(b.types, b.level_names, run.cfg),
             "K": run.K,
-            "n_patterns_raw": len(run.patterns),
-            "n_patterns_kept": len(rows),
+            "n_abstractions_raw": len(run.patterns),
+            "n_abstractions_kept": len(rows),
             "n_executions": run.n_executions,
             "kpi": kpi,
             "kpi_unit": unit,
+            "rows": rows,
+        })
+
+    @app.get("/api/cfg/<int:ci>/situation")
+    def api_cfg_situation(ci: int):
+        if not (0 <= ci < len(state.bundle.cfg_runs)):
+            abort(404)
+        b = state.bundle
+        run = b.cfg_runs[ci]
+
+        kept_behaviors = state.behaviors_after_subsumption(ci)
+
+        kpi_meta = [{"name": k.get("name"), "unit": k.get("unit", "")}
+                    for k in b.kpi_specs]
+
+        behavior_meta = []
+        in_sets = []
+        primary = b.primary_kpi
+        for pi, p in kept_behaviors:
+            stats = p.kpi_stats.get(primary, {})
+            behavior_meta.append({
+                "behavior_idx": pi,
+                "support": p.support,
+                "size_nodes": p.size_nodes,
+                "size_edges": p.size_edges,
+                "delta": stats.get("delta", 0.0),
+                "signed_delta": stats.get("signed_delta", 0.0),
+            })
+            in_sets.append(frozenset(p.in_exec_idx))
+
+        rows = []
+        for exec_i, ex in enumerate(b.executions):
+            row = {"exec_idx": exec_i, "n_events": len(ex.events)}
+            for kc in kpi_meta:
+                vals = b.kpi_values.get(kc["name"], [])
+                row[kc["name"]] = vals[exec_i] if exec_i < len(vals) else None
+            for bc, in_set in zip(behavior_meta, in_sets):
+                row[f"b{bc['behavior_idx']}"] = exec_i in in_set
+            rows.append(row)
+
+        return jsonify({
+            "cfg_idx": ci,
+            "cfg_str": fmt_cfg(b.types, b.level_names, run.cfg),
+            "n_executions": run.n_executions,
+            "kpi_meta": kpi_meta,
+            "behavior_meta": behavior_meta,
             "rows": rows,
         })
 
@@ -429,10 +452,10 @@ def create_app(state: ExplorerState) -> Flask:
     @app.get("/api/tree/all")
     def api_tree_all():
 
-        def _pattern_to_text(pattern) -> Dict[str, Any]:
+        def _behavior_to_text(behavior) -> Dict[str, Any]:
             nodes = []
 
-            for n, d in pattern.nodes(data=True):
+            for n, d in behavior.nodes(data=True):
                 nodes.append({
                     "id": int(n) if isinstance(n, int) else str(n),
                     "label": d.get("label", str(n)),
@@ -440,7 +463,7 @@ def create_app(state: ExplorerState) -> Flask:
 
             edges = []
 
-            for u, v, d in pattern.edges(data=True):
+            for u, v, d in behavior.edges(data=True):
                 labels = d.get("labels")
 
                 if labels is None:
@@ -449,8 +472,8 @@ def create_app(state: ExplorerState) -> Flask:
                 else:
                     sorted_lbls = sorted(str(l) for l in labels)
 
-                source_label = pattern.nodes[u].get("label", str(u))
-                target_label = pattern.nodes[v].get("label", str(v))
+                source_label = behavior.nodes[u].get("label", str(u))
+                target_label = behavior.nodes[v].get("label", str(v))
 
                 for lbl in sorted_lbls:
                     edges.append({
@@ -474,13 +497,13 @@ def create_app(state: ExplorerState) -> Flask:
 
         only_interesting = bool(request.args.get("only_interesting", type=int, default=1))
         include_leaves = bool(request.args.get("include_leaves", type=int, default=1))
-        include_patterns = bool(request.args.get("include_patterns", type=int, default=1))
-        include_pattern_graphs = bool(request.args.get("include_pattern_graphs", type=int, default=0))
+        include_patterns = bool(request.args.get("include_behaviors", type=int, default=1))
+        include_pattern_graphs = bool(request.args.get("include_behavior_graphs", type=int, default=0))
 
         cache = getattr(state, "_leaves_cache", None)
         if cache is None:
             cache = {}
-            state._leaves_cache = cache  # type: ignore[attr-defined]
+            state._leaves_cache = cache
 
         rows = []
 
@@ -488,7 +511,7 @@ def create_app(state: ExplorerState) -> Flask:
             if only_interesting and not run.is_interesting:
                 continue
 
-            kept = state.patterns_after_subsumption(ci)
+            kept = state.behaviors_after_subsumption(ci)
             n_kept = len(kept) if kept is not None else len(run.patterns)
 
             if n_kept < 1:
@@ -501,8 +524,8 @@ def create_app(state: ExplorerState) -> Flask:
                 "cfg": list(run.cfg),
                 "cfg_str": fmt_cfg(b.types, b.level_names, run.cfg),
                 "K": run.K,
-                "n_patterns_raw": len(run.patterns),
-                "n_patterns_kept": n_kept,
+                "n_abstractions_raw": len(run.patterns),
+                "n_abstractions_kept": n_kept,
                 "n_executions": run.n_executions,
                 "tree": tree_payload,
             }
@@ -529,7 +552,7 @@ def create_app(state: ExplorerState) -> Flask:
 
                     pattern_row = {
                         "cfg_idx": ci,
-                        "pattern_idx": pi,
+                        "behavior_idx": pi,
                         "pattern_name": f"p{pi}",
 
                         "size_nodes": p.size_nodes,
@@ -550,11 +573,11 @@ def create_app(state: ExplorerState) -> Flask:
                         "mu_in_fmt": _fmt_kpi(stats.get("mu_in", 0.0), unit),
                         "mu_out_fmt": _fmt_kpi(stats.get("mu_out", 0.0), unit),
 
-                        "definition": _pattern_to_text(p.pattern),
+                        "definition": _behavior_to_text(p.pattern),
                     }
 
                     if include_pattern_graphs:
-                        pattern_row["graph"] = _pattern_to_cy(p.pattern)
+                        pattern_row["graph"] = _behavior_to_cy(p.pattern)
 
                     pattern_rows.append(pattern_row)
 
@@ -570,8 +593,8 @@ def create_app(state: ExplorerState) -> Flask:
             "kpi_unit": kpi_unit_of.get(kpi, ""),
             "only_interesting": only_interesting,
             "include_leaves": include_leaves,
-            "include_patterns": include_patterns,
-            "include_pattern_graphs": include_pattern_graphs,
+            "include_behaviors": include_patterns,
+            "include_behavior_graphs": include_pattern_graphs,
             "n_cfgs": len(rows),
             "rows": rows,
         })
@@ -590,7 +613,7 @@ def create_app(state: ExplorerState) -> Flask:
         cache = getattr(state, "_leaves_cache", None)
         if cache is None:
             cache = {}
-            state._leaves_cache = cache  # type: ignore[attr-defined]
+            state._leaves_cache = cache
 
         key = (ci, kpi)
         payload = cache.get(key)
@@ -621,7 +644,7 @@ def create_app(state: ExplorerState) -> Flask:
             ],
         }), 404
 
-    @app.get("/api/pattern/<int:ci>/<int:pi>")
+    @app.get("/api/behavior/<int:ci>/<int:pi>")
     def api_pattern(ci: int, pi: int):
         if not (0 <= ci < len(state.bundle.cfg_runs)):
             abort(404)
@@ -640,7 +663,7 @@ def create_app(state: ExplorerState) -> Flask:
         out_vals = [kpi_vals[i] for i in p.out_exec_idx if i < len(kpi_vals)]
         return jsonify({
             "cfg_idx": ci,
-            "pattern_idx": pi,
+            "behavior_idx": pi,
             "cfg_str": fmt_cfg(b.types, b.level_names, run.cfg),
             "size_nodes": p.size_nodes,
             "size_edges": p.size_edges,
@@ -654,10 +677,10 @@ def create_app(state: ExplorerState) -> Flask:
             "kpi_in":  _summary_stats(in_vals),
             "kpi_out": _summary_stats(out_vals),
             "kpi_stats_raw": p.kpi_stats.get(kpi, {}),
-            "graph": _pattern_to_cy(p.pattern),
+            "graph": _behavior_to_cy(p.pattern),
         })
 
-    @app.get("/api/pattern/<int:ci>/<int:pi>/attrs")
+    @app.get("/api/behavior/<int:ci>/<int:pi>/attrs")
     def api_pattern_attrs(ci: int, pi: int):
         if not (0 <= ci < len(state.bundle.cfg_runs)):
             abort(404)
@@ -667,7 +690,7 @@ def create_app(state: ExplorerState) -> Flask:
         kpi = request.args.get("kpi", state.bundle.primary_kpi)
         return jsonify(attribute_breakdown(state, ci, pi, kpi=kpi))
 
-    @app.get("/api/pattern/<int:ci>/<int:pi>/debug")
+    @app.get("/api/behavior/<int:ci>/<int:pi>/debug")
     def api_pattern_debug(ci: int, pi: int):
         if not (0 <= ci < len(state.bundle.cfg_runs)):
             abort(404)
@@ -690,7 +713,7 @@ def create_app(state: ExplorerState) -> Flask:
             })
         return jsonify({
             "cfg_idx": ci,
-            "pattern_idx": pi,
+            "behavior_idx": pi,
             "cfg":     list(run.cfg),
             "cfg_str": fmt_cfg(b.types, b.level_names, run.cfg),
             "support":     int(p.support),
@@ -707,7 +730,7 @@ def create_app(state: ExplorerState) -> Flask:
             "graph_edges": edges,
         })
 
-    @app.get("/api/pattern/pair/<int:ci>/<int:pa>/<int:pb>/debug")
+    @app.get("/api/behavior/pair/<int:ci>/<int:pa>/<int:pb>/debug")
     def api_pattern_pair_debug(ci: int, pa: int, pb: int):
         if not (0 <= ci < len(state.bundle.cfg_runs)):
             abort(404)
@@ -738,7 +761,7 @@ def create_app(state: ExplorerState) -> Flask:
         for ci, run in enumerate(b.cfg_runs):
             if not run.is_interesting:
                 continue
-            kept = state.patterns_after_subsumption(ci)
+            kept = state.behaviors_after_subsumption(ci)
             n_kept = (len(kept) if kept is not None else len(run.patterns))
             if n_kept < 1:
                 continue
@@ -747,7 +770,7 @@ def create_app(state: ExplorerState) -> Flask:
                 "cfg": list(run.cfg),
                 "cfg_str": fmt_cfg(b.types, b.level_names, run.cfg),
                 "K": run.K,
-                "n_patterns": n_kept,
+                "n_abstractions": n_kept,
             })
         return jsonify({
             "types": b.types,
@@ -776,7 +799,7 @@ def create_app(state: ExplorerState) -> Flask:
             "rows": rows,
         }
         cache[kpi] = payload
-        state._tree_summary_cache = cache  # type: ignore[attr-defined]
+        state._tree_summary_cache = cache
         return jsonify(payload)
 
     @app.get("/api/tree/cfg/<int:ci>")
@@ -797,7 +820,7 @@ def create_app(state: ExplorerState) -> Flask:
             p2 = int(request.args.get("p2", "-1"))
         except ValueError:
             return jsonify({"status": "bad_params"}), 400
-        return jsonify(tree_pattern_relation(state, ci, p1, p2))
+        return jsonify(tree_behavior_relation(state, ci, p1, p2))
 
     @app.get("/api/tree/cfg/<int:ci>/leaves")
     def api_tree_leaves(ci: int):
@@ -809,7 +832,7 @@ def create_app(state: ExplorerState) -> Flask:
         cache = getattr(state, "_leaves_cache", None)
         if cache is None:
             cache = {}
-            state._leaves_cache = cache  # type: ignore[attr-defined]
+            state._leaves_cache = cache
         key = (ci, kpi)
         payload = cache.get(key)
         if payload is None:
@@ -828,12 +851,12 @@ def create_app(state: ExplorerState) -> Flask:
         cache = getattr(state, "_leaves_cache", None)
         if cache is None:
             cache = {}
-            state._leaves_cache = cache  # type: ignore[attr-defined]
+            state._leaves_cache = cache
 
         def _pattern_condition_from_step(step: Dict[str, Any]) -> str:
             pid = (
-                step.get("pattern_idx")
-                if "pattern_idx" in step
+                step.get("behavior_idx")
+                if "behavior_idx" in step
                 else step.get("pattern_id")
                 if "pattern_id" in step
                 else step.get("pi")
@@ -861,7 +884,7 @@ def create_app(state: ExplorerState) -> Flask:
             return str(step.get("human_condition", step))
 
         def _leaf_boolean_label(leaf: Dict[str, Any]) -> str:
-            steps = leaf.get("path_patterns", []) or []
+            steps = leaf.get("path_behaviors", []) or []
             parts = [_pattern_condition_from_step(s) for s in steps]
             parts = [p for p in parts if p and p != "{}"]
             return " AND ".join(parts) if parts else "ROOT"
@@ -872,7 +895,7 @@ def create_app(state: ExplorerState) -> Flask:
             if not run.is_interesting:
                 continue
 
-            kept = state.patterns_after_subsumption(ci)
+            kept = state.behaviors_after_subsumption(ci)
             n_kept = len(kept) if kept is not None else len(run.patterns)
             if n_kept < 1:
                 continue
@@ -935,7 +958,7 @@ def create_app(state: ExplorerState) -> Flask:
         cache = getattr(state, "_leaves_cache", None)
         if cache is None:
             cache = {}
-            state._leaves_cache = cache  # type: ignore[attr-defined]
+            state._leaves_cache = cache
 
         payload = cross_leaf_distribution(
             state,
@@ -976,7 +999,7 @@ def create_app(state: ExplorerState) -> Flask:
         cache = getattr(state, "_leaves_cache", None)
         if cache is None:
             cache = {}
-            state._leaves_cache = cache  # type: ignore[attr-defined]
+            state._leaves_cache = cache
 
         key = (ci, kpi)
         source_payload = cache.get(key)
@@ -986,7 +1009,7 @@ def create_app(state: ExplorerState) -> Flask:
 
         print("\n" + "=" * 80)
         print(f"DEBUG FULL CROSS — cfg {ci}")
-        print(f"Configurazione: {fmt_cfg(b.types, b.level_names, b.cfg_runs[ci].cfg)}")
+        print(f"Configuration: {fmt_cfg(b.types, b.level_names, b.cfg_runs[ci].cfg)}")
         print(f"KPI: {kpi}")
         print("=" * 80)
 
@@ -999,14 +1022,14 @@ def create_app(state: ExplorerState) -> Flask:
             print(f"FOGLIA SORGENTE {leaf_id}")
             print("-" * 80)
 
-            print("Esecuzioni nella foglia:")
+            print("Executions in leaf:")
             print(leaf.get("exec_idx", []))
 
             print("\nCaratterizzazione foglia:")
             print(leaf.get("human_label", f"L{leaf_id}"))
 
             print("\nPattern / condizioni che portano alla foglia:")
-            for step in leaf.get("path_patterns", []):
+            for step in leaf.get("path_behaviors", []):
                 print(" -", step.get("human_condition", step))
 
             cross = cross_leaf_distribution(
@@ -1018,21 +1041,21 @@ def create_app(state: ExplorerState) -> Flask:
                 cache=cache,
             )
 
-            print("\nDove finiscono queste esecuzioni negli altri alberi:")
+            print("\nWhere these executions end up in other trees:")
 
             for target in cross.get("targets", []):
                 target_ci = target.get("cfg_idx")
                 target_cfg = b.cfg_runs[target_ci].cfg
 
-                print("\nConfigurazione target:", target_ci)
+                print("\nTarget configuration:", target_ci)
                 print("ρ =", fmt_cfg(b.types, b.level_names, target_cfg))
 
                 for target_leaf in target.get("leaves", []):
                     print("  Foglia:", target_leaf.get("leaf_id"))
-                    print("  Esecuzioni:", target_leaf.get("exec_idx", []))
+                    print("  Executions:", target_leaf.get("exec_idx", []))
                     print("  Pattern della foglia:")
 
-                    for step in target_leaf.get("path_patterns", []):
+                    for step in target_leaf.get("path_behaviors", []):
                         print("   -", step.get("human_condition", step))
 
             all_results.append({
@@ -1088,7 +1111,7 @@ def main(argv: List[str] = None) -> int:
     print_rho_dependencies(state)
 
     b = state.bundle
-    print(f"  ✓ {len(b.executions)} executions, {b.n_patterns_total} "
+    print(f"{len(b.executions)} executions, {getattr(b, 'n_behaviors_total', getattr(b, 'n_behaviors_total', 0))} "
           f"patterns across {b.n_cfg_total} configs "
           f"({b.n_cfg_interesting} interesting)")
     print(f"  primary KPI: {b.primary_kpi}")

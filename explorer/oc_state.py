@@ -18,11 +18,7 @@ except ModuleNotFoundError:
 
 
 def pretty_level(name: str) -> str:
-    if name == "id":
-        return "identity"
-    if name == "type":
-        return "map→type"
-    return f"ρ_{name}"
+    return name
 
 
 def fmt_cfg(types: List[str], level_names: Dict[str, List[str]], cfg: Tuple[int, ...]) -> str:
@@ -40,7 +36,7 @@ class CfgRow:
     cfg: List[int]
     cfg_str: str
     K: int
-    n_patterns: int
+    n_abstractions: int
     n_executions: int
     is_interesting: bool
     best_delta: float
@@ -54,7 +50,7 @@ class ExplorerState:
             self.bundle.per_type_attrs,
             self.bundle.obj_types_map,
         )
-        self.bundle.hierarchies = self.hierarchies  # type: ignore[attr-defined]
+        self.bundle.hierarchies = self.hierarchies
         self.cfg_index: Dict[Tuple[int, ...], int] = {
             tuple(run.cfg): idx for idx, run in enumerate(self.bundle.cfg_runs)
         }
@@ -80,7 +76,7 @@ class ExplorerState:
                     cfg=list(run.cfg),
                     cfg_str=fmt_cfg(bundle.types, bundle.level_names, run.cfg),
                     K=run.K,
-                    n_patterns=len(run.patterns),
+                    n_abstractions=len(run.patterns),
                     n_executions=run.n_executions,
                     is_interesting=run.is_interesting,
                     best_delta=best_delta,
@@ -89,7 +85,7 @@ class ExplorerState:
         return rows
 
     @lru_cache(maxsize=2048)
-    def behavior_for(self, cfg_idx: int, exec_idx: int):
+    def abstraction_for(self, cfg_idx: int, exec_idx: int):
         run = self.bundle.cfg_runs[cfg_idx]
         cfg = tuple(run.cfg)
         level_config = LevelConfiguration(
@@ -145,20 +141,20 @@ class ExplorerState:
         self._eid_to_attrs = eid_to_attrs
         return df, eid_to_attrs
 
-    def kept_patterns_for_cfg(self, cfg_idx: int) -> Optional[set[int]]:
+    def kept_behaviors_for_cfg(self, cfg_idx: int) -> Optional[set[int]]:
         if cfg_idx in self._subsumption_kept:
             return self._subsumption_kept[cfg_idx]
 
-        from oc_subsume import compute_kept_patterns
+        from explorer.oc_subsume import compute_kept_patterns
 
         run = self.bundle.cfg_runs[cfg_idx]
         kept = compute_kept_patterns(run.patterns)
         self._subsumption_kept[cfg_idx] = kept
         return kept
 
-    def patterns_after_subsumption(self, cfg_idx: int) -> List[Tuple[int, BundlePattern]]:
+    def behaviors_after_subsumption(self, cfg_idx: int) -> List[Tuple[int, BundlePattern]]:
         run = self.bundle.cfg_runs[cfg_idx]
-        kept = self.kept_patterns_for_cfg(cfg_idx)
+        kept = self.kept_behaviors_for_cfg(cfg_idx)
         if kept is None:
             return list(enumerate(run.patterns))
-        return [(idx, pattern) for idx, pattern in enumerate(run.patterns) if idx in kept]
+        return [(idx, beh) for idx, beh in enumerate(run.patterns) if idx in kept]
