@@ -4,7 +4,7 @@
 
 ## Requirements
 
-- [Python 3.9](https://www.python.org/downloads/release/python-396/) (the program was tested in Python 3.9.23)
+- [Python 3.9](https://www.python.org/downloads/release/python-396/)
 - [Graphviz](https://graphviz.org/download/)
 
 ## Installation
