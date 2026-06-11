@@ -162,7 +162,7 @@ def behavior_details(state, cfg_idx: int, behavior_ids: List[int], kpi: Optional
         for u, v, d in pat.pattern.edges(data=True):
             labels = d.get('labels')
             if labels is not None:
-                lbl = ' · '.join(sorted((str(x) for x in labels)))
+                lbl = ' '.join(sorted((str(x) for x in labels)))
             else:
                 lbl = str(d.get('label', ''))
             edges.append({'source': str(u), 'target': str(v), 'label': lbl})

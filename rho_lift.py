@@ -286,7 +286,7 @@ def _print_functional_dependencies(per_type_attrs: Dict[str, List[Tuple[str, Dic
                 if i == j:
                     continue
                 if _refines(block_keys[i], block_keys[j], type_oids):
-                    print(f'       {a_name}  →  {b_name}')
+                    print(f'       {a_name} -> {b_name}')
                     found = True
         if not found:
             print('no non-trivial FDs')
@@ -678,7 +678,7 @@ def _merge_equivalent_lifted_patterns(lifted: List[LiftedPattern], verbose: bool
         lp0 = items[0][1]
         out.append(LiftedPattern(cfg=lp0.cfg, pattern=Pmerged, signature=new_sig, support=lp0.support, n_graphs=lp0.n_graphs, size_nodes=Pmerged.number_of_nodes(), size_edges=size_edges, in_exec_idx=lp0.in_exec_idx, out_exec_idx=lp0.out_exec_idx, mu_in=lp0.mu_in, mu_out=lp0.mu_out, delta=lp0.delta, signed_delta=lp0.signed_delta))
     if verbose and len(out) < len(lifted):
-        print(f'[merge] lifted: {len(lifted)} → {len(out)} after multi-label-edge merge')
+        print(f'[merge] lifted: {len(lifted)} -> {len(out)} after multi-label-edge merge')
     return out
 
 def _mine_and_score(run: CfgRun, kpi_values: Dict[str, List[float]], primary_kpi: str, s_min_abs: int, s_max_abs: int, max_edges: int, beam_width: int, min_support: int, top_k_per_cfg: int, verbose: bool, collect_all: bool=False, miner: str='gspan') -> Tuple[List[LiftedPattern], List[BundlePattern], Dict[str, Any]]:
@@ -776,7 +776,7 @@ def _fmt_cfg(cfg: Tuple[int, ...], types: List[str], level_names: Dict[str, List
         lv = cfg[i]
         lbl = names[lv] if 0 <= lv < len(names) else str(lv)
         parts.append(f'{tau}:{lbl}')
-    return ' | '.join(parts)
+    return ', '.join(parts)
 
 def _fmt_duration_seconds(s: float) -> str:
     abs_s = abs(s)
@@ -901,7 +901,7 @@ def _deduplicate_executions_by_bottom_iso(*, executions: List[ProcessExecution],
     if verbose:
         n_before = len(executions)
         n_after = len(representatives)
-        print(f'[dedup] bottom-isomorphism deduplication: {n_before} executions → {n_after} representatives ({n_before - n_after} removed)')
+        print(f'[dedup] bottom-isomorphism deduplication: {n_before} executions -> {n_after} representatives ({n_before - n_after} removed)')
         class_sizes = [len(v) for v in iso_to_indices.values()]
         if class_sizes:
             print(f'[dedup] bottom iso-class sizes: min={min(class_sizes)} mean={sum(class_sizes) / len(class_sizes):.2f} max={max(class_sizes)}')
@@ -961,10 +961,10 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
     if not executions:
         raise RuntimeError(
             f"[exec] No process executions found for leading type '{leading_type}'.\n"
-            f"  • Check that the leading type name matches exactly (case-sensitive).\n"
-            f"  • Make sure ocel_filter has been run on the log (it sanitises type "
+            f"  Check that the leading type name matches exactly (case-sensitive).\n"
+            f"  Make sure ocel_filter has been run on the log (it sanitises type "
             f"names to lowercase).\n"
-            f"  • Object types in the log: {list(obj_types_map.keys())}"
+            f"  Object types in the log: {list(obj_types_map.keys())}"
         )
 
     _t = time.time()
@@ -991,7 +991,7 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
         for tau in types:
             names = level_names[tau]
             rs = ['identity' if n == 'id' else 'type' if n == 'type' else n for n in names]
-            print(f'  {tau}: ' + ' | '.join(rs))
+            print(f'  {tau}: ' + ', '.join(rs))
     s_abs_min = int(round(s_min * len(executions))) if not support_abs else int(s_min)
     s_abs_max = int(round(s_max * len(executions))) if not support_abs else int(s_max)
     if not quiet:
@@ -1051,7 +1051,7 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
         total_mining_time += time.time() - t_mine
         mining_stats_by_cfg[r.cfg] = mining_stats
         if not quiet:
-            print(f'        → {len(scored)} behaviors kept from this cfg  (top-{top_k_per_cfg} by KPI)')
+            print(f'        -> {len(scored)} behaviors kept from this cfg  (top-{top_k_per_cfg} by KPI)')
         all_scored.extend(scored)
         if want_bundle:
             bundle_by_cfg[r.cfg] = bundled
@@ -1162,7 +1162,7 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
     save_run_stats_csv(stats_csv, timings=timings, elapsed=elapsed, types=types, level_names=level_names, lattice_metrics=lattice_metrics, bottom_cfg=bottom_cfg, top_cfg=top_cfg, n_events=stats.n_events, n_objects=stats.n_objects, n_executions=stats.n_executions, n_cfg_total=stats.n_cfg_total, n_cfg_interesting=stats.n_cfg_interesting, n_cfg_mineable=len(mine_runs), n_cfg_skipped=stats.n_cfg_skipped, n_behaviors_total=len(all_scored), n_behaviors_top=len(top))
     if out_html:
         if not quiet:
-            print(f'[html] rendering {len(top)} behaviors → {out_html}')
+            print(f'[html] rendering {len(top)} behaviors -> {out_html}')
         max_delta = max((p.delta for p in top), default=1.0) or 1.0
         items = []
         for pat in top:
@@ -1171,7 +1171,7 @@ def run_pipeline(*, ocel_path: str, leading_type: str, s_min: float=0.02, s_max:
         render_html(ocel_path=ocel_path, leading_type=leading_type, n_executions=len(executions), n_cfg_eval=len(all_cfgs), n_cfg_interesting=len(runs), s_min=s_abs_min, s_max=s_abs_max, kpi_label='execution duration (max_ts − min_ts)', elapsed_s=elapsed, patterns=items, out_path=out_html, k=len(items))
     if bundle_path:
         if not quiet:
-            print(f'[bund] packaging full run → {bundle_path}')
+            print(f'[bund] packaging full run -> {bundle_path}')
         # Apply subsumption and renumber patterns sequentially so that
         # behavior indices in the .pkl match what the explorer displays.
         try:
@@ -1252,7 +1252,7 @@ def main(argv: Optional[List[str]]=None) -> int:
         print(f'  HTML report written to {out_h}')
     if args.bundle:
         print(f'  Interactive bundle saved to {args.bundle}')
-        print(f'  → open it with:  python3 rho_explorer.py {args.bundle}')
+        print(f'  -> open it with:  python3 rho_explorer.py {args.bundle}')
     return 0
 if __name__ == '__main__':
     sys.exit(main())

@@ -31,7 +31,7 @@ class MinedPattern:
 def canonical_signature(P: nx.DiGraph) -> Tuple:
     """
     Minimal-lex signature over all permutations of the node set.
-    Only feasible for small patterns (≤ ~7 nodes ➜ ≤ 5040 perms).
+    Only feasible for small patterns (<= ~7 nodes -> <= 5040 perms).
 
     Signature: (tuple of node-labels, tuple of sorted edges), each edge
     being (src_idx, tgt_idx, sorted-tuple-of-labels).
@@ -297,7 +297,7 @@ def mine_gspan(
         n_v = sum(g.number_of_nodes() for g in graphs)
         n_e = sum(_pattern_n_pseudo_edges(g) for g in graphs)
         print(f"[gspan] {len(graphs)} input graphs "
-              f"(∑V={n_v}, ∑E(labels)={n_e})")
+              f"(sum_V={n_v}, sum_E(labels)={n_e})")
 
     encoded = [_encode_graph(G) for G in graphs]
     nv, ev, inv_nv, inv_ev = _build_vocabs(encoded)
@@ -305,7 +305,7 @@ def mine_gspan(
     if verbose:
         e_v = sum(g.number_of_nodes() for g in encoded)
         e_e = sum(g.number_of_edges() for g in encoded)
-        print(f"[gspan] encoded: ∑V={e_v}, ∑E={e_e}, "
+        print(f"[gspan] encoded: sum_V={e_v}, sum_E={e_e}, "
               f"|V-vocab|={len(nv)}, |E-vocab|={len(ev)}")
 
     max_enc_vertices = 2 * max_edges + 2

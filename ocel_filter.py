@@ -603,9 +603,9 @@ def _discretize_one(log: dict, kind: str, type_or_activity: str, attr: str, max_
             continue
         item['attributes'][target_attr] = val_to_label.get(f, label_strs[0])
         written += 1
-    print(f"[discretize] {kind}.{type_or_activity}.{attr} → '{target_attr}'  K={k} (elbow), {written} values labelled")
+    print(f"[discretize] {kind}.{type_or_activity}.{attr} -> '{target_attr}'  K={k} (elbow), {written} values labelled")
     for b in band_stats:
-        rng = f"≈{b['min']:.4g}" if b['min'] == b['max'] else f"[{b['min']:.4g}, {b['max']:.4g}]"
+        rng = f"~{b['min']:.4g}" if b['min'] == b['max'] else f"[{b['min']:.4g}, {b['max']:.4g}]"
         print(f"            {b['label']:>14s}: {rng}  centroid={b['centroid']:.4g}  n={b['count']}")
     return {'kind': kind, 'type': type_or_activity, 'attr': attr, 'out_attr': target_attr, 'k': k, 'n_clustered': written, 'bands': band_stats}
 

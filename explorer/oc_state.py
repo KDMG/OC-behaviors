@@ -27,7 +27,7 @@ def fmt_cfg(types: List[str], level_names: Dict[str, List[str]], cfg: Tuple[int,
         names = level_names.get(tau, [])
         label = pretty_level(names[level]) if 0 <= level < len(names) else f"lv{level}"
         parts.append(f"{tau}:{label}")
-    return "  |  ".join(parts)
+    return ", ".join(parts)
 
 
 @dataclass

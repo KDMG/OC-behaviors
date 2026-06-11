@@ -45,7 +45,7 @@ def detect_types_to_remove(ocel_path: str, tau: float = 0.9) -> list[str]:
                     no_activity.add(t)
 
     remove = sorted(no_activity - has_activity)
-    print(f"[mlpa] Types with no activities → will be removed: {remove}")
+    print(f"[mlpa] Types with no activities -> will be removed: {remove}")
     return remove
 
 def run_filter(input_path: str, output_path: str, remove_types: list[str]) -> None:
@@ -102,7 +102,7 @@ def run_explorer(bundle_path: str, host: str = "127.0.0.1", port: int = 8050) ->
 
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(
-        description="OC-behaviors pipeline: mlpa → filter → mine → (explore)",
+        description="OC-behaviors pipeline: mlpa -> filter -> mine -> (explore)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )

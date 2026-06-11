@@ -1048,7 +1048,7 @@ def create_app(state: ExplorerState) -> Flask:
                 target_cfg = b.cfg_runs[target_ci].cfg
 
                 print("\nTarget configuration:", target_ci)
-                print("ρ =", fmt_cfg(b.types, b.level_names, target_cfg))
+                print("rho =", fmt_cfg(b.types, b.level_names, target_cfg))
 
                 for target_leaf in target.get("leaves", []):
                     print("  Foglia:", target_leaf.get("leaf_id"))
@@ -1078,7 +1078,7 @@ def create_app(state: ExplorerState) -> Flask:
 def main(argv: List[str] = None) -> int:
     ap = argparse.ArgumentParser(
         description="3-level OCEL explorer "
-                    "(Lattice → Pattern → Attributes)",
+                    "(Lattice -> Pattern -> Attributes)",
     )
     ap.add_argument("bundle", help="Path to a run bundle .pkl file")
     ap.add_argument("--host", default="127.0.0.1")
