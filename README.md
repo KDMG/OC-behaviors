@@ -4,7 +4,7 @@
 
 ## Requirements
 
-- [Python 3.9.6](https://www.python.org/downloads/release/python-396/)
+- [Python 3.9.23](https://www.python.org/downloads/release/python-396/) (any other python 3.9 and 3.10 should work as well)
 - [Graphviz](https://graphviz.org/download/)
 
 ## Installation
